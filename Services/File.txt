@@ -1,0 +1,5 @@
+App is being debugged, do not track this hang
+Hang detected: 8.29s (debugger attached, not reporting)
+App is being debugged, do not track this hang
+Hang detected: 1.35s (debugger attached, not reporting)
+Debug session ended with code 9: Terminated due to signal 9
