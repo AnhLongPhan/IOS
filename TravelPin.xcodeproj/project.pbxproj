@@ -45,54 +45,10 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		263E50992FB4269E0033F49A /* Exceptions for "Map" folder in "TravelPin" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				CheckInAnnotationView.swift,
-				MapContainerView.swift,
-			);
-			target = 263E50622FB41FEC0033F49A /* TravelPin */;
-		};
-		263E509E2FB428520033F49A /* Exceptions for "Places" folder in "TravelPin" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				PlacesView.swift,
-			);
-			target = 263E50622FB41FEC0033F49A /* TravelPin */;
-		};
-		263E50A42FB42AB00033F49A /* Exceptions for "Settings" folder in "TravelPin" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				SettingsView.swift,
-			);
-			target = 263E50622FB41FEC0033F49A /* TravelPin */;
-		};
-		263E50A92FB42B6D0033F49A /* Exceptions for "Main" folder in "TravelPin" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				MainTabView.swift,
-			);
-			target = 263E50622FB41FEC0033F49A /* TravelPin */;
-		};
-		263E50AC2FB42EC60033F49A /* Exceptions for "Stats" folder in "TravelPin" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				StatsView.swift,
-			);
-			target = 263E50622FB41FEC0033F49A /* TravelPin */;
-		};
 		263E50B82FB46C720033F49A /* Exceptions for "TravelPin" folder in "TravelPin" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
-			);
-			target = 263E50622FB41FEC0033F49A /* TravelPin */;
-		};
-		26EECF022FB56C8100030301 /* Exceptions for "AddCheckIn" folder in "TravelPin" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				AddCheckInView.swift,
-				CategoryPickerView.swift,
 			);
 			target = 263E50622FB41FEC0033F49A /* TravelPin */;
 		};
@@ -117,52 +73,9 @@
 			path = TravelPinUITests;
 			sourceTree = "<group>";
 		};
-		263E50962FB426830033F49A /* Map */ = {
+		26EECF2D2FB5A0F000030301 /* Views */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				263E50992FB4269E0033F49A /* Exceptions for "Map" folder in "TravelPin" target */,
-			);
-			path = Map;
-			sourceTree = "<group>";
-		};
-		263E509A2FB4283A0033F49A /* Places */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				263E509E2FB428520033F49A /* Exceptions for "Places" folder in "TravelPin" target */,
-			);
-			path = Places;
-			sourceTree = "<group>";
-		};
-		263E509F2FB429A60033F49A /* Stats */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				263E50AC2FB42EC60033F49A /* Exceptions for "Stats" folder in "TravelPin" target */,
-			);
-			path = Stats;
-			sourceTree = "<group>";
-		};
-		263E50A12FB42A9C0033F49A /* Settings */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				263E50A42FB42AB00033F49A /* Exceptions for "Settings" folder in "TravelPin" target */,
-			);
-			path = Settings;
-			sourceTree = "<group>";
-		};
-		263E50A52FB42B5B0033F49A /* Main */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				263E50A92FB42B6D0033F49A /* Exceptions for "Main" folder in "TravelPin" target */,
-			);
-			path = Main;
-			sourceTree = "<group>";
-		};
-		26EECEFD2FB56C4C00030301 /* AddCheckIn */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				26EECF022FB56C8100030301 /* Exceptions for "AddCheckIn" folder in "TravelPin" target */,
-			);
-			path = AddCheckIn;
+			path = Views;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -197,7 +110,6 @@
 			isa = PBXGroup;
 			children = (
 				263E50AE2FB46A000033F49A /* Services */,
-				263E50932FB4225C0033F49A /* Views */,
 				263E50912FB422380033F49A /* ViewModels */,
 				263E50902FB4222F0033F49A /* Models */,
 				263E508F2FB422090033F49A /* App */,
@@ -206,6 +118,7 @@
 				263E507F2FB41FED0033F49A /* TravelPinUITests */,
 				263E50B42FB46AE00033F49A /* Frameworks */,
 				263E50642FB41FEC0033F49A /* Products */,
+				26EECF2D2FB5A0F000030301 /* Views */,
 			);
 			sourceTree = "<group>";
 		};
@@ -243,19 +156,6 @@
 			path = ViewModels;
 			sourceTree = "<group>";
 		};
-		263E50932FB4225C0033F49A /* Views */ = {
-			isa = PBXGroup;
-			children = (
-				26EECEFD2FB56C4C00030301 /* AddCheckIn */,
-				263E50A52FB42B5B0033F49A /* Main */,
-				263E50A12FB42A9C0033F49A /* Settings */,
-				263E509F2FB429A60033F49A /* Stats */,
-				263E509A2FB4283A0033F49A /* Places */,
-				263E50962FB426830033F49A /* Map */,
-			);
-			path = Views;
-			sourceTree = "<group>";
-		};
 		263E50AE2FB46A000033F49A /* Services */ = {
 			isa = PBXGroup;
 			children = (
@@ -290,6 +190,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				263E50652FB41FEC0033F49A /* TravelPin */,
+				26EECF2D2FB5A0F000030301 /* Views */,
 			);
 			name = TravelPin;
 			packageProductDependencies = (

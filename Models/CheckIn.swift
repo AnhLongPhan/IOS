@@ -51,7 +51,7 @@ enum PlaceCategory: String, Codable, CaseIterable {
         case .food: return "fork.knife"
         case .culture: return "building.column.fill"
         case .adventure: return "figure.hiking"
-        case .other: return "mapin.fill"
+        case .other: return "link.cricle"
         }
     }
     
