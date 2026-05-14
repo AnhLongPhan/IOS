@@ -43,15 +43,15 @@ struct CategoryPickerView: View {
 
     func categoryColor(_ category: PlaceCategory) -> Color {
         switch category {
-        case .nature:    return .green
-        case .food:      return .orange
-        case .culture:   return .blue
-        case .adventure: return .red
-        case .other:     return .gray
+        case .extendedFamily: return .purple
+        case .family:         return .green
+        case .couple:         return .pink
+        case .solo:           return .blue
+        case .other:          return .gray
         }
     }
 }
 
 #Preview {
-    CategoryPickerView(selected: .constant(.nature))
+    CategoryPickerView(selected: .constant(.family))
 }

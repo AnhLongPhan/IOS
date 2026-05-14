@@ -27,6 +27,7 @@ class CheckInViewModel {
     var sortOption: SortOption = .newest  // thêm mới
 
     private let storage: StorageServiceProtocol
+    private let imageService = ImageStorageService()
 
     init(storage: StorageServiceProtocol = StorageService()) {
         self.storage = storage
@@ -68,6 +69,9 @@ class CheckInViewModel {
     }
 
     func delete(_ checkIn: CheckIn) {
+        if let path = checkIn.photoPath {
+            imageService.delete(filename: path)
+        }
         checkIns.removeAll { $0.id == checkIn.id }
         storage.save(checkIns)
     }

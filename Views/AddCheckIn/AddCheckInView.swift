@@ -1,19 +1,14 @@
-//
-//  AddCheckInView.swift
-//  TravelPin
-//
-//  Created by longanh on 14/5/26.
-//
-
 import SwiftUI
 import MapKit
 
 struct AddCheckInView: View {
     @Environment(CheckInViewModel.self) var viewModel
+    @Environment(LocationService.self) var locationService
     @Environment(\.dismiss) var dismiss
-    @State private var isVisited: Bool = true;
 
-    // Tọa độ được truyền vào từ bản đồ (nếu có)
+    private let imageService    = ImageStorageService()
+    private let geocodingService = GeocodingService()
+
     var initialCoordinate: CLLocationCoordinate2D? = nil
 
     // Form fields
@@ -21,11 +16,21 @@ struct AddCheckInView: View {
     @State private var note: String = ""
     @State private var visitedAt: Date = Date()
     @State private var category: PlaceCategory = .other
+    @State private var transportationMode: TransportationMode = .car
     @State private var latitudeText: String = ""
     @State private var longitudeText: String = ""
+    @State private var city: String = ""
+    @State private var country: String = ""
+    @State private var isVisited: Bool = true
+    @State private var selectedImage: UIImage? = nil
     @State private var showValidationError = false
+    @State private var showSearchSheet  = false
+    @State private var showMapPicker    = false
 
-    // Validate
+    // Geocoding state
+    @State private var isGeocoding = false
+    @State private var geocodeTask: Task<Void, Never>? = nil
+
     var isValid: Bool {
         !name.trimmingCharacters(in: .whitespaces).isEmpty &&
         Double(latitudeText) != nil &&
@@ -35,7 +40,16 @@ struct AddCheckInView: View {
     var body: some View {
         NavigationStack {
             Form {
-                // MARK: - Thông tin cơ bản
+                // MARK: - Ảnh
+                Section("Ảnh") {
+                    ImageSectionView(selectedImage: $selectedImage)
+                        .listRowInsets(EdgeInsets(
+                            top: 8, leading: 8,
+                            bottom: 8, trailing: 8
+                        ))
+                }
+
+                // MARK: - Thông tin
                 Section("Thông tin") {
                     TextField("Tên địa điểm *", text: $name)
                         .autocorrectionDisabled()
@@ -45,8 +59,8 @@ struct AddCheckInView: View {
                         selection: $visitedAt,
                         displayedComponents: [.date]
                     )
-                    
-                    Toggle(isVisited ? "Đã tham quan" : "Sẽ đi", isOn : $isVisited)
+
+                    Toggle("Đã tham quan", isOn: $isVisited)
                 }
 
                 // MARK: - Category
@@ -58,46 +72,114 @@ struct AddCheckInView: View {
                         ))
                 }
 
-                // MARK: - Tọa độ
-                Section("Tọa độ") {
-                    HStack {
-                        Text("Vĩ độ")
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        TextField("vd: 21.0285", text: $latitudeText)
-                            .keyboardType(.decimalPad)
-                            .multilineTextAlignment(.trailing)
-                    }
-                    HStack {
-                        Text("Kinh độ")
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        TextField("vd: 105.8542", text: $longitudeText)
-                            .keyboardType(.decimalPad)
-                            .multilineTextAlignment(.trailing)
-                    }
-
-                    if showValidationError &&
-                       (Double(latitudeText) == nil || Double(longitudeText) == nil) {
-                        Text("Tọa độ không hợp lệ")
-                            .font(.caption)
-                            .foregroundStyle(.red)
+                Section("Phương tiện di chuyển") {
+                    Picker("Phương tiện", selection: $transportationMode) {
+                        ForEach(TransportationMode.allCases, id: \.self) { mode in
+                            Label(mode.rawValue, systemImage: mode.icon)
+                                .tag(mode)
+                        }
                     }
                 }
 
+                // MARK: - Tọa độ + auto-fill
+                Section {
+                    // Nút chọn vị trí
+                    HStack(spacing: 10) {
+                        // Tìm kiếm địa điểm
+                        Button {
+                            showSearchSheet = true
+                        } label: {
+                            Label("Tìm kiếm", systemImage: "magnifyingglass")
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.85)
+                                .frame(minWidth: 105, maxWidth: 130)
+                                .padding(.vertical, 10)
+                                .background(Color(.systemGray5))
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                                .foregroundStyle(.primary)
+                        }
+
+                        // Chọn trên map
+                        Button {
+                            showMapPicker = true
+                        } label: {
+                            Label("Trên map", systemImage: "map")
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.85)
+                                .frame(minWidth: 105, maxWidth: 130)
+                                .padding(.vertical, 10)
+                                .background(Color(.systemGray5))
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                                .foregroundStyle(.primary)
+                        }
+
+                        // GPS hiện tại
+                        Button {
+                            useCurrentLocation()
+                        } label: {
+                            Image(systemName: "location.fill")
+                                .padding(.vertical, 10)
+                                .padding(.horizontal, 14)
+                                .background(Color(.systemGray5))
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                                .foregroundStyle(.blue)
+                        }
+                    }
+                    .listRowInsets(EdgeInsets(
+                        top: 8, leading: 12,
+                        bottom: 8, trailing: 12
+                    ))
+                    .buttonStyle(.plain)
+
+                    // Hiện tọa độ đã chọn
+                    if !latitudeText.isEmpty {
+                        HStack {
+                            Text("Vĩ độ")
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            TextField("vd: 21.0285", text: $latitudeText)
+                                .keyboardType(.numbersAndPunctuation)
+                                .multilineTextAlignment(.trailing)
+                        }
+                        HStack {
+                            Text("Kinh độ")
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            TextField("vd: 105.8542", text: $longitudeText)
+                                .keyboardType(.numbersAndPunctuation)
+                                .multilineTextAlignment(.trailing)
+                        }
+                    }
+
+                } header: {
+                    Text("Vị trí")
+                } footer: {
+                    if isGeocoding {
+                        HStack(spacing: 6) {
+                            ProgressView().scaleEffect(0.8)
+                            Text("Đang tìm địa chỉ...")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    } else if !city.isEmpty || !country.isEmpty {
+                        Label(
+                            "\(city)\(city.isEmpty ? "" : ", ")\(country)",
+                            systemImage: "mappin.circle.fill"
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.green)
+                    }
+                }
                 // MARK: - Ghi chú
                 Section("Ghi chú") {
                     TextEditor(text: $note)
-                        .frame(minHeight: 100)
-                    Text("\(note.count) / 200")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .frame(minHeight: 80)
                 }
 
-                // MARK: - Validation error
-                if showValidationError && name.trimmingCharacters(in: .whitespaces).isEmpty {
+                // Validation error
+                if showValidationError && !isValid {
                     Section {
-                        Text("Vui lòng nhập tên địa điểm")
+                        Text("Vui lòng nhập tên và tọa độ hợp lệ")
                             .foregroundStyle(.red)
                             .font(.caption)
                     }
@@ -108,24 +190,87 @@ struct AddCheckInView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Huỷ") {
+                        geocodeTask?.cancel()
                         dismiss()
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Lưu") {
-                        saveCheckIn()
-                    }
-                    .fontWeight(.semibold)
-                    .disabled(!isValid)
+                    Button("Lưu") { saveCheckIn() }
+                        .fontWeight(.semibold)
+                        .disabled(!isValid)
                 }
             }
             .onAppear {
-                // Điền tọa độ nếu được truyền vào từ bản đồ
                 if let coord = initialCoordinate {
-                    latitudeText = String(format: "%.6f", coord.latitude)
+                    latitudeText  = String(format: "%.6f", coord.latitude)
                     longitudeText = String(format: "%.6f", coord.longitude)
+                    triggerGeocode()
                 }
             }
+            // Auto-geocode khi nhập tọa độ xong
+            .onChange(of: latitudeText)  { _, _ in triggerGeocode() }
+            .onChange(of: longitudeText) { _, _ in triggerGeocode() }
+            .sheet(isPresented: $showSearchSheet) {
+                LocationSearchView { result in
+                    latitudeText  = String(format: "%.6f", result.latitude)
+                    longitudeText = String(format: "%.6f", result.longitude)
+                    city          = result.city
+                    country       = result.country
+                    if name.isEmpty {
+                        name = result.name
+                    }
+                }
+            }
+            .sheet(isPresented: $showMapPicker) {
+                MapPickerView { coord in
+                    latitudeText  = String(format: "%.6f", coord.latitude)
+                    longitudeText = String(format: "%.6f", coord.longitude)
+                    triggerGeocode()
+                }
+            }
+        }
+    }
+
+    // MARK: - Dùng vị trí GPS hiện tại
+    private func useCurrentLocation() {
+        guard let coord = locationService.userLocation else { return }
+        latitudeText  = String(format: "%.6f", coord.latitude)
+        longitudeText = String(format: "%.6f", coord.longitude)
+        triggerGeocode()
+    }
+
+    // MARK: - Trigger geocode với debounce
+    private func triggerGeocode() {
+        // Huỷ task cũ nếu user đang gõ tiếp
+        geocodeTask?.cancel()
+
+        guard let lat = Double(latitudeText),
+              let lon = Double(longitudeText) else { return }
+
+        geocodeTask = Task {
+            // Debounce 0.8s — chờ user gõ xong
+            try? await Task.sleep(for: .seconds(0.8))
+            guard !Task.isCancelled else { return }
+
+            isGeocoding = true
+
+            // Thử CLGeocoder trước
+            var result = await locationService.reverseGeocode(
+                latitude: lat,
+                longitude: lon
+            )
+
+            // Nếu CLGeocoder thất bại → thử Nominatim
+            if result.city.isEmpty && result.country.isEmpty {
+                result = await geocodingService.reverseGeocode(
+                    latitude: lat,
+                    longitude: lon
+                )
+            }
+
+            isGeocoding = false
+            city    = result.city
+            country = result.country
         }
     }
 
@@ -134,13 +279,24 @@ struct AddCheckInView: View {
         showValidationError = true
         guard isValid else { return }
 
+        geocodeTask?.cancel()
+
+        var photoFilename: String? = nil
+        if let image = selectedImage {
+            photoFilename = imageService.save(image)
+        }
+
         let newCheckIn = CheckIn(
             name: name.trimmingCharacters(in: .whitespaces),
             note: note,
             latitude: Double(latitudeText) ?? 0,
             longitude: Double(longitudeText) ?? 0,
             visitedAt: visitedAt,
+            city: city,
+            country: country,
             category: category,
+            transportationMode: transportationMode,
+            photoPath: photoFilename,
             isVisited: isVisited
         )
 
@@ -152,4 +308,5 @@ struct AddCheckInView: View {
 #Preview {
     AddCheckInView()
         .environment(CheckInViewModel())
+        .environment(LocationService())
 }

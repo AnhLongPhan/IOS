@@ -2,7 +2,22 @@ import SwiftUI
 
 struct PlacesView: View {
     @Environment(CheckInViewModel.self) var viewModel
-    @State private var showSortMenu = false
+
+    var sortedCheckIns: [CheckIn] {
+        viewModel.checkIns
+            .filter { checkIn in
+                let matchesSearch = viewModel.searchText.isEmpty ||
+                    checkIn.name.localizedCaseInsensitiveContains(viewModel.searchText) ||
+                    checkIn.note.localizedCaseInsensitiveContains(viewModel.searchText) ||
+                    checkIn.city.localizedCaseInsensitiveContains(viewModel.searchText)
+
+                let matchesCategory = viewModel.selectedCategory == nil ||
+                    checkIn.category == viewModel.selectedCategory
+
+                return matchesSearch && matchesCategory
+            }
+            .sorted { $0.visitedAt < $1.visitedAt }
+    }
 
     var body: some View {
         NavigationStack {
@@ -16,13 +31,13 @@ struct PlacesView: View {
                 Divider()
 
                 // List
-                if viewModel.filteredCheckIns.isEmpty {
+                if sortedCheckIns.isEmpty {
                     emptyStateView
                 } else {
                     List {
-                        ForEach(viewModel.filteredCheckIns) { checkIn in
+                        ForEach(Array(sortedCheckIns.enumerated()), id: \.element.id) { index, checkIn in
                             NavigationLink(value: checkIn) {
-                                CheckInRowView(checkIn: checkIn)
+                                CheckInRowView(checkIn: checkIn, index: index + 1)
                             }
                             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                 Button(role: .destructive) {
@@ -42,32 +57,14 @@ struct PlacesView: View {
             }
             .navigationTitle("Places")
             .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    // Sort menu
-                    Menu {
-                        ForEach(SortOption.allCases, id: \.self) { option in
-                            Button {
-                                viewModel.sortOption = option
-                            } label: {
-                                Label(
-                                    option.rawValue,
-                                    systemImage: option.icon
-                                )
-                            }
-                        }
-                    } label: {
-                        Image(systemName: "arrow.up.arrow.down")
-                    }
-                }
-            }
             .searchable(
                 text: Bindable(viewModel).searchText,
                 prompt: "Tìm địa điểm..."
             )
             .navigationDestination(for: CheckIn.self) { checkIn in
                 // Day 7 sẽ tạo DetailView
-                Text("Detail: \(checkIn.name)")
+                DetailView(checkIn: checkIn)
+                    .environment(viewModel)
             }
         }
     }

@@ -9,15 +9,34 @@ import SwiftUI
 
 struct CheckInAnnotationView: View {
     let checkIn: CheckIn
-    @State private var showTitle = false
+    var isTitleVisible: Bool = false
+    var onTap: () -> Void = { }
+    var onDoubleTap: () -> Void = { }
+
+    private let imageService = ImageStorageService()
+
+    var thumbnail: UIImage? {
+        guard let path = checkIn.photoPath else { return nil }
+        return imageService.load(filename: path)
+    }
+
+    var displayTitle: String {
+        let trimmedName = checkIn.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmedName.isEmpty ? checkIn.locationDisplay : trimmedName
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             // Label hiện khi tap
-            if showTitle {
-                Text(checkIn.name)
+            if isTitleVisible {
+                Text(displayTitle)
                     .font(.caption)
                     .fontWeight(.semibold)
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                    .frame(width: 180)
+                    .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(.white)
@@ -26,39 +45,74 @@ struct CheckInAnnotationView: View {
                     .transition(.scale.combined(with: .opacity))
             }
 
-            // Pin icon
+            // Pin
             ZStack {
+                // Viền ngoài đổi màu theo phân loại
                 Circle()
-                    .fill(categoryColor)
-                    .frame(width: 36, height: 36)
-                    .shadow(radius: 3)
+                    .fill(.white)
+                    .overlay(
+                        Circle()
+                            .stroke(categoryColor, lineWidth: 3)
+                    )
+                    .frame(width: 46, height: 46)
+                    .shadow(radius: 4)
 
-                Image(systemName: checkIn.category.icon)
-                    .font(.system(size: 16))
-                    .foregroundStyle(.white)
-            }
-            .onTapGesture {
-                withAnimation(.spring(duration: 0.3)) {
-                    showTitle.toggle()
+                if let image = thumbnail {
+                    // Có ảnh → hiện thumbnail
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 40, height: 40)
+                        .clipShape(Circle())
+                } else {
+                    // Không có ảnh → hiện icon category
+                    Circle()
+                        .fill(categoryColor)
+                        .frame(width: 40, height: 40)
+
+                    Image(systemName: checkIn.category.icon)
+                        .font(.system(size: 16))
+                        .foregroundStyle(.white)
                 }
             }
+            .highPriorityGesture(
+                TapGesture(count: 2)
+                    .onEnded {
+                        onDoubleTap()
+                    }
+            )
+            .onTapGesture {
+                onTap()
+            }
 
-            // Mũi tên nhọn phía dưới pin
+            // Mũi tên nhọn phía dưới
             Triangle()
-                .fill(categoryColor)
+                .fill(thumbnail != nil ? .white : categoryColor)
                 .frame(width: 12, height: 8)
+                .shadow(radius: 1)
         }
     }
 
     var categoryColor: Color {
         switch checkIn.category {
-        case .nature:    return .green
-        case .food:      return .orange
-        case .culture:   return .blue
-        case .adventure: return .red
-        case .other:     return .gray
+        case .extendedFamily: return .purple
+        case .family:         return .green
+        case .couple:         return .pink
+        case .solo:           return .blue
+        case .other:          return .gray
         }
     }
+}
+
+#Preview {
+    VStack(spacing: 20) {
+        // Pin có ảnh (dùng mock — sẽ hiện icon vì không có file thật)
+        CheckInAnnotationView(checkIn: CheckIn.mockData[0])
+        // Pin không có ảnh
+        CheckInAnnotationView(checkIn: CheckIn.mockData[1])
+    }
+    .padding()
+    .background(Color.gray.opacity(0.2))
 }
 
 // Hình tam giác nhọn làm đuôi pin

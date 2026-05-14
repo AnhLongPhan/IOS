@@ -13,6 +13,8 @@
 		263E50B12FB46A260033F49A /* LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 263E50B02FB46A260033F49A /* LocationService.swift */; };
 		263E50B62FB46AE00033F49A /* CoreLocation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 263E50B52FB46AE00033F49A /* CoreLocation.framework */; };
 		26EECF062FB58CAD00030301 /* StorageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26EECF052FB58CAD00030301 /* StorageService.swift */; };
+		26EECF472FB5B54600030301 /* ImageStorageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26EECF462FB5B54600030301 /* ImageStorageService.swift */; };
+		26EECF512FB5C22800030301 /* GeocodingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26EECF502FB5C22800030301 /* GeocodingService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -42,6 +44,8 @@
 		263E50B02FB46A260033F49A /* LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationService.swift; sourceTree = "<group>"; };
 		263E50B52FB46AE00033F49A /* CoreLocation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreLocation.framework; path = System/Library/Frameworks/CoreLocation.framework; sourceTree = SDKROOT; };
 		26EECF052FB58CAD00030301 /* StorageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageService.swift; sourceTree = "<group>"; };
+		26EECF462FB5B54600030301 /* ImageStorageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageStorageService.swift; sourceTree = "<group>"; };
+		26EECF502FB5C22800030301 /* GeocodingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeocodingService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -161,6 +165,8 @@
 			children = (
 				263E50B02FB46A260033F49A /* LocationService.swift */,
 				26EECF052FB58CAD00030301 /* StorageService.swift */,
+				26EECF462FB5B54600030301 /* ImageStorageService.swift */,
+				26EECF502FB5C22800030301 /* GeocodingService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -318,10 +324,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				26EECF472FB5B54600030301 /* ImageStorageService.swift in Sources */,
 				263E50B12FB46A260033F49A /* LocationService.swift in Sources */,
 				263E50AD2FB434F40033F49A /* CheckIn.swift in Sources */,
 				263E50672FB41FEC0033F49A /* TravelPinApp.swift in Sources */,
 				263E50AA2FB42EBB0033F49A /* CheckInViewModel.swift in Sources */,
+				26EECF512FB5C22800030301 /* GeocodingService.swift in Sources */,
 				26EECF062FB58CAD00030301 /* StorageService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -486,8 +494,10 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = TravelPin/Info.plist;
+				INFOPLIST_KEY_NSCameraUsageDescription = "TravelPin cần camera để chụp ảnh địa điểm";
 				INFOPLIST_KEY_NSLocationAlwaysUsageDescription = "ravelPin cần vị trí để đánh dấu điểm tham quan";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "ravelPin cần vị trí để hiển thị trên bản đồ";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "TravelPin cần truy cập ảnh để đính kèm vào địa điểm";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -522,8 +532,10 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = TravelPin/Info.plist;
+				INFOPLIST_KEY_NSCameraUsageDescription = "TravelPin cần camera để chụp ảnh địa điểm";
 				INFOPLIST_KEY_NSLocationAlwaysUsageDescription = "ravelPin cần vị trí để đánh dấu điểm tham quan";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "ravelPin cần vị trí để hiển thị trên bản đồ";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "TravelPin cần truy cập ảnh để đính kèm vào địa điểm";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

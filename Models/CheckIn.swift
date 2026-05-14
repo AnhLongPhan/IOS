@@ -15,8 +15,37 @@ struct CheckIn: Identifiable, Codable , Hashable  {
     var city: String = ""
     var country: String = ""
     var category: PlaceCategory = .other
+    var transportationMode: TransportationMode = .car
     var photoPath: String? = nil
     var isVisited: Bool = true
+
+    init(
+        id: UUID = .init(),
+        name: String,
+        note: String = "",
+        latitude: Double,
+        longitude: Double,
+        visitedAt: Date = Date(),
+        city: String = "",
+        country: String = "",
+        category: PlaceCategory = .other,
+        transportationMode: TransportationMode = .car,
+        photoPath: String? = nil,
+        isVisited: Bool = true
+    ) {
+        self.id = id
+        self.name = name
+        self.note = note
+        self.latitude = latitude
+        self.longitude = longitude
+        self.visitedAt = visitedAt
+        self.city = city
+        self.country = country
+        self.category = category
+        self.transportationMode = transportationMode
+        self.photoPath = photoPath
+        self.isVisited = isVisited
+    }
     
     var locationDisplay: String {
         if city.isEmpty && country.isEmpty {
@@ -39,28 +68,85 @@ struct CheckIn: Identifiable, Codable , Hashable  {
     }
 }
 
-enum PlaceCategory: String, Codable, CaseIterable {
-    case nature = "Nature"
-    case food = "Food"
-    case culture = "Culture"
-    case adventure = "Adventure"
-    case other = "Other"
+extension CheckIn {
+    enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case note
+        case latitude
+        case longitude
+        case visitedAt
+        case city
+        case country
+        case category
+        case transportationMode
+        case photoPath
+        case isVisited
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? .init()
+        name = try container.decode(String.self, forKey: .name)
+        note = try container.decodeIfPresent(String.self, forKey: .note) ?? ""
+        latitude = try container.decode(Double.self, forKey: .latitude)
+        longitude = try container.decode(Double.self, forKey: .longitude)
+        visitedAt = try container.decodeIfPresent(Date.self, forKey: .visitedAt) ?? Date()
+        city = try container.decodeIfPresent(String.self, forKey: .city) ?? ""
+        country = try container.decodeIfPresent(String.self, forKey: .country) ?? ""
+        category = try container.decodeIfPresent(PlaceCategory.self, forKey: .category) ?? .other
+        transportationMode = try container.decodeIfPresent(TransportationMode.self, forKey: .transportationMode) ?? .car
+        photoPath = try container.decodeIfPresent(String.self, forKey: .photoPath)
+        isVisited = try container.decodeIfPresent(Bool.self, forKey: .isVisited) ?? true
+    }
+}
+
+enum TransportationMode: String, Codable, CaseIterable {
+    case car = "Ô tô"
+    case motorbike = "Xe máy"
+    case bus = "Xe khách"
+    case train = "Tàu hỏa"
+    case plane = "Máy bay"
+    case walking = "Đi bộ"
+    case other = "Khác"
+
     var icon: String {
         switch self {
-        case .nature: return "leaf.fill"
-        case .food: return "fork.knife"
-        case .culture: return "building.column.fill"
-        case .adventure: return "figure.hiking"
-        case .other: return "link.cricle"
+        case .car: return "car.fill"
+        case .motorbike: return "scooter"
+        case .bus: return "bus.fill"
+        case .train: return "tram.fill"
+        case .plane: return "airplane"
+        case .walking: return "figure.walk"
+        case .other: return "ellipsis.circle.fill"
+        }
+    }
+}
+
+enum PlaceCategory: String, Codable, CaseIterable {
+    case extendedFamily = "Đại gia đình"
+    case family = "Gia đình"
+    case couple = "Vợ chồng"
+    case solo = "Một mình"
+    case other = "Khác"
+    
+    var icon: String {
+        switch self {
+        case .extendedFamily: return "person.3.fill"
+        case .family: return "person.2.fill"
+        case .couple: return "heart.fill"
+        case .solo: return "person.fill"
+        case .other: return "ellipsis.circle.fill"
         }
     }
     
     var color: String {
         switch self {
-        case .nature: return "green"
-        case .food: return "orange"
-        case .culture: return "blue"
-        case .adventure: return "red"
+        case .extendedFamily: return "purple"
+        case .family: return "green"
+        case .couple: return "pink"
+        case .solo: return "blue"
         case .other: return "gray"
         }
     }
@@ -76,7 +162,7 @@ extension CheckIn {
                 latitude: 21.0285, longitude: 105.8542,
                 visitedAt: Date().addingTimeInterval(-86400 * 10),
                 city: "Hanoi", country: "Vietnam",
-                category: .nature
+                category: .family
             ),
             CheckIn(
                 name: "Bun Cha Huong Lien",
@@ -84,7 +170,7 @@ extension CheckIn {
                 latitude: 20.9990, longitude: 105.8412,
                 visitedAt: Date().addingTimeInterval(-86400 * 8),
                 city: "Hanoi", country: "Vietnam",
-                category: .food
+                category: .couple
             ),
             CheckIn(
                 name: "Hoi An Ancient Town",
@@ -92,7 +178,7 @@ extension CheckIn {
                 latitude: 15.8801, longitude: 108.3380,
                 visitedAt: Date().addingTimeInterval(-86400 * 5),
                 city: "Hoi An", country: "Vietnam",
-                category: .culture
+                category: .extendedFamily
             ),
             CheckIn(
                 name: "Son Doong Cave",
@@ -100,7 +186,7 @@ extension CheckIn {
                 latitude: 17.4500, longitude: 106.2833,
                 visitedAt: Date().addingTimeInterval(-86400 * 3),
                 city: "Quang Binh", country: "Vietnam",
-                category: .adventure
+                category: .solo
             ),
             CheckIn(
                 name: "Ben Thanh Market",
@@ -108,7 +194,7 @@ extension CheckIn {
                 latitude: 10.7725, longitude: 106.6980,
                 visitedAt: Date().addingTimeInterval(-86400 * 1),
                 city: "Ho Chi Minh City", country: "Vietnam",
-                category: .food
+                category: .couple
             ),
         ]
     }
