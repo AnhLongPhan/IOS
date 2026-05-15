@@ -12,6 +12,7 @@
 		263E50AD2FB434F40033F49A /* CheckIn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 263E50942FB422960033F49A /* CheckIn.swift */; };
 		263E50B12FB46A260033F49A /* LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 263E50B02FB46A260033F49A /* LocationService.swift */; };
 		263E50B62FB46AE00033F49A /* CoreLocation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 263E50B52FB46AE00033F49A /* CoreLocation.framework */; };
+		266A2E722FB6CE490021D765 /* BackupService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 266A2E712FB6CE490021D765 /* BackupService.swift */; };
 		26EECF062FB58CAD00030301 /* StorageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26EECF052FB58CAD00030301 /* StorageService.swift */; };
 		26EECF472FB5B54600030301 /* ImageStorageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26EECF462FB5B54600030301 /* ImageStorageService.swift */; };
 		26EECF512FB5C22800030301 /* GeocodingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26EECF502FB5C22800030301 /* GeocodingService.swift */; };
@@ -43,6 +44,7 @@
 		263E50952FB424680033F49A /* CheckInViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInViewModel.swift; sourceTree = "<group>"; };
 		263E50B02FB46A260033F49A /* LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationService.swift; sourceTree = "<group>"; };
 		263E50B52FB46AE00033F49A /* CoreLocation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreLocation.framework; path = System/Library/Frameworks/CoreLocation.framework; sourceTree = SDKROOT; };
+		266A2E712FB6CE490021D765 /* BackupService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupService.swift; sourceTree = "<group>"; };
 		26EECF052FB58CAD00030301 /* StorageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageService.swift; sourceTree = "<group>"; };
 		26EECF462FB5B54600030301 /* ImageStorageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageStorageService.swift; sourceTree = "<group>"; };
 		26EECF502FB5C22800030301 /* GeocodingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeocodingService.swift; sourceTree = "<group>"; };
@@ -167,6 +169,7 @@
 				26EECF052FB58CAD00030301 /* StorageService.swift */,
 				26EECF462FB5B54600030301 /* ImageStorageService.swift */,
 				26EECF502FB5C22800030301 /* GeocodingService.swift */,
+				266A2E712FB6CE490021D765 /* BackupService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -328,6 +331,7 @@
 				263E50B12FB46A260033F49A /* LocationService.swift in Sources */,
 				263E50AD2FB434F40033F49A /* CheckIn.swift in Sources */,
 				263E50672FB41FEC0033F49A /* TravelPinApp.swift in Sources */,
+				266A2E722FB6CE490021D765 /* BackupService.swift in Sources */,
 				263E50AA2FB42EBB0033F49A /* CheckInViewModel.swift in Sources */,
 				26EECF512FB5C22800030301 /* GeocodingService.swift in Sources */,
 				26EECF062FB58CAD00030301 /* StorageService.swift in Sources */,

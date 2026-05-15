@@ -1,5 +1,6 @@
-import SwiftUI
 import MapKit
+import SwiftUI
+import UIKit
 
 struct MapContainerView: View {
     @Environment(CheckInViewModel.self) var viewModel
@@ -22,15 +23,36 @@ struct MapContainerView: View {
     @State private var showAddSheet = false
     @State private var selectedCoordinate: CLLocationCoordinate2D? = nil
     @State private var selectedAnnotationID: CheckIn.ID? = nil
+    @State private var selectedClusterID: CheckInCluster.ID? = nil
     @State private var navigationPath: [CheckIn] = []
     @State private var showRouteLine = false
+    @State private var visibleRegion = MKCoordinateRegion(
+        center: CLLocationCoordinate2D(latitude: 14.0583, longitude: 108.2772),
+        span: MKCoordinateSpan(latitudeDelta: 12, longitudeDelta: 12)
+    )
 
     private var routeCheckIns: [CheckIn] {
-        viewModel.checkIns.sorted { $0.visitedAt < $1.visitedAt }
+        viewModel.checkIns
+            .filter(\.isVisited)
+            .sorted { $0.visitedAt < $1.visitedAt }
     }
 
     private var routeCoordinates: [CLLocationCoordinate2D] {
         NationalHighway1APath.coordinates(for: routeCheckIns)
+    }
+
+    private var checkInClusters: [CheckInCluster] {
+        CheckInCluster.build(from: viewModel.filteredCheckIns, in: visibleRegion)
+    }
+
+    private var selectedCheckIn: CheckIn? {
+        guard let selectedAnnotationID else { return nil }
+        return viewModel.checkIns.first { $0.id == selectedAnnotationID }
+    }
+
+    private var selectedCluster: CheckInCluster? {
+        guard let selectedClusterID else { return nil }
+        return checkInClusters.first { $0.id == selectedClusterID }
     }
 
     var body: some View {
@@ -58,6 +80,7 @@ struct MapContainerView: View {
                                     isSelected: selectedAnnotationID == checkIn.id
                                 ) {
                                     withAnimation(.spring(duration: 0.3)) {
+                                        selectedClusterID = nil
                                         selectedAnnotationID = selectedAnnotationID == checkIn.id ? nil : checkIn.id
                                     }
                                 }
@@ -71,27 +94,42 @@ struct MapContainerView: View {
                             }
                         }
                     } else {
-                        ForEach(viewModel.checkIns) { checkIn in
+                        ForEach(checkInClusters) { cluster in
                             Annotation(
-                                checkIn.name,
-                                coordinate: CLLocationCoordinate2D(
-                                    latitude: checkIn.latitude,
-                                    longitude: checkIn.longitude
-                                )
+                                cluster.title,
+                                coordinate: cluster.coordinate
                             ) {
-                                CheckInAnnotationView(
-                                    checkIn: checkIn,
-                                    isTitleVisible: selectedAnnotationID == checkIn.id,
-                                    onTap: {
+                                if cluster.isCluster {
+                                    ClusterAnnotationView(
+                                        count: cluster.checkIns.count,
+                                        isSelected: selectedClusterID == cluster.id
+                                    ) {
                                         withAnimation(.spring(duration: 0.3)) {
-                                            selectedAnnotationID = selectedAnnotationID == checkIn.id ? nil : checkIn.id
+                                            selectedAnnotationID = nil
+                                            selectedClusterID = selectedClusterID == cluster.id ? nil : cluster.id
                                         }
-                                    },
-                                    onDoubleTap: {
-                                        selectedAnnotationID = nil
-                                        navigationPath.append(checkIn)
+
+                                        if selectedClusterID == cluster.id {
+                                            moveToCluster(cluster)
+                                        }
                                     }
-                                )
+                                } else if let checkIn = cluster.checkIns.first {
+                                    CheckInAnnotationView(
+                                        checkIn: checkIn,
+                                        isTitleVisible: selectedAnnotationID == checkIn.id,
+                                        onTap: {
+                                            withAnimation(.spring(duration: 0.3)) {
+                                                selectedClusterID = nil
+                                                selectedAnnotationID = selectedAnnotationID == checkIn.id ? nil : checkIn.id
+                                            }
+                                        },
+                                        onDoubleTap: {
+                                            selectedAnnotationID = nil
+                                            selectedClusterID = nil
+                                            navigationPath.append(checkIn)
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
@@ -105,11 +143,15 @@ struct MapContainerView: View {
                     MapCompass()
                     MapScaleView()
                 }
+                .onMapCameraChange(frequency: .onEnd) { context in
+                    visibleRegion = context.region
+                }
                 .ignoresSafeArea()
                 // Long press để chọn tọa độ
                 .onLongPressGesture(minimumDuration: 0.5) {
                     selectedCoordinate = nil
                     selectedAnnotationID = nil
+                    selectedClusterID = nil
                     showAddSheet = true
                 }
                 .onAppear {
@@ -140,6 +182,7 @@ struct MapContainerView: View {
                 Button {
                     selectedCoordinate = nil
                     selectedAnnotationID = nil
+                    selectedClusterID = nil
                     showAddSheet = true
                 } label: {
                     Image(systemName: "plus")
@@ -156,6 +199,7 @@ struct MapContainerView: View {
                     withAnimation(.easeInOut(duration: 0.2)) {
                         showRouteLine.toggle()
                         selectedAnnotationID = nil
+                        selectedClusterID = nil
                     }
                 } label: {
                     Image(systemName: "point.topleft.down.curvedto.point.bottomright.up")
@@ -193,7 +237,33 @@ struct MapContainerView: View {
                 }
             }
             .padding(.trailing, 16)
-            .padding(.bottom, 32)
+            .padding(.bottom, selectedCheckIn != nil || selectedCluster != nil ? 168 : 32)
+
+            if let selectedCheckIn {
+                CheckInPreviewSheet(
+                    checkIn: selectedCheckIn,
+                    onClose: clearSelection,
+                    onOpenDetail: {
+                        clearSelection()
+                        navigationPath.append(selectedCheckIn)
+                    }
+                )
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            } else if let selectedCluster {
+                ClusterPreviewSheet(
+                    cluster: selectedCluster,
+                    onClose: clearSelection,
+                    onZoomIn: {
+                        moveToCluster(selectedCluster)
+                    },
+                    onOpenFirst: {
+                        guard let firstCheckIn = selectedCluster.checkIns.sorted(by: { $0.visitedAt > $1.visitedAt }).first else { return }
+                        clearSelection()
+                        navigationPath.append(firstCheckIn)
+                    }
+                )
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
         .sheet(isPresented: $showAddSheet) {
             AddCheckInView(initialCoordinate: selectedCoordinate)
@@ -240,6 +310,11 @@ struct MapContainerView: View {
             return
         }
 
+        if let selectedCluster {
+            moveToCluster(selectedCluster)
+            return
+        }
+
         moveToUserLocation()
     }
 
@@ -260,6 +335,19 @@ struct MapContainerView: View {
         }
     }
 
+    private func moveToCluster(_ cluster: CheckInCluster) {
+        withAnimation(.easeInOut(duration: 0.8)) {
+            cameraPosition = .region(cluster.zoomRegion)
+        }
+    }
+
+    private func clearSelection() {
+        withAnimation(.spring(duration: 0.25)) {
+            selectedAnnotationID = nil
+            selectedClusterID = nil
+        }
+    }
+
     private func moveToUserLocation() {
         guard let location = locationService.userLocation else { return }
         withAnimation(.easeInOut(duration: 1.0)) {
@@ -273,6 +361,286 @@ struct MapContainerView: View {
                 )
             )
         }
+    }
+}
+
+struct CheckInCluster: Identifiable {
+    let id: String
+    let checkIns: [CheckIn]
+    let coordinate: CLLocationCoordinate2D
+
+    var isCluster: Bool {
+        checkIns.count > 1
+    }
+
+    var title: String {
+        if isCluster {
+            return "\(checkIns.count) địa điểm"
+        }
+
+        return checkIns.first?.name ?? "Địa điểm"
+    }
+
+    var zoomRegion: MKCoordinateRegion {
+        let latitudes = checkIns.map(\.latitude)
+        let longitudes = checkIns.map(\.longitude)
+        guard let minLatitude = latitudes.min(),
+              let maxLatitude = latitudes.max(),
+              let minLongitude = longitudes.min(),
+              let maxLongitude = longitudes.max() else {
+            return MKCoordinateRegion(
+                center: coordinate,
+                span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)
+            )
+        }
+
+        let latitudeDelta = max((maxLatitude - minLatitude) * 2.4, 0.02)
+        let longitudeDelta = max((maxLongitude - minLongitude) * 2.4, 0.02)
+
+        return MKCoordinateRegion(
+            center: coordinate,
+            span: MKCoordinateSpan(latitudeDelta: latitudeDelta, longitudeDelta: longitudeDelta)
+        )
+    }
+
+    static func build(from checkIns: [CheckIn], in region: MKCoordinateRegion) -> [CheckInCluster] {
+        guard checkIns.count > 1 else {
+            return checkIns.map { checkIn in
+                CheckInCluster(
+                    id: checkIn.id.uuidString,
+                    checkIns: [checkIn],
+                    coordinate: CLLocationCoordinate2D(latitude: checkIn.latitude, longitude: checkIn.longitude)
+                )
+            }
+        }
+
+        let cellLatitude = max(region.span.latitudeDelta / 8, 0.004)
+        let cellLongitude = max(region.span.longitudeDelta / 8, 0.004)
+        let buckets = Dictionary(grouping: checkIns) { checkIn in
+            ClusterGridKey(
+                latitude: Int((checkIn.latitude / cellLatitude).rounded(.down)),
+                longitude: Int((checkIn.longitude / cellLongitude).rounded(.down))
+            )
+        }
+
+        return buckets.values.map { bucket in
+            let sortedBucket = bucket.sorted { $0.visitedAt > $1.visitedAt }
+            let latitude = sortedBucket.map(\.latitude).reduce(0, +) / Double(sortedBucket.count)
+            let longitude = sortedBucket.map(\.longitude).reduce(0, +) / Double(sortedBucket.count)
+            let id = sortedBucket.map { $0.id.uuidString }.sorted().joined(separator: "-")
+
+            return CheckInCluster(
+                id: id,
+                checkIns: sortedBucket,
+                coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+            )
+        }
+        .sorted { lhs, rhs in
+            if lhs.isCluster != rhs.isCluster {
+                return lhs.isCluster && !rhs.isCluster
+            }
+
+            return lhs.title < rhs.title
+        }
+    }
+}
+
+private struct ClusterGridKey: Hashable {
+    let latitude: Int
+    let longitude: Int
+}
+
+struct ClusterAnnotationView: View {
+    let count: Int
+    let isSelected: Bool
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            ZStack {
+                Circle()
+                    .fill(isSelected ? .blue : .white)
+                    .frame(width: isSelected ? 58 : 52, height: isSelected ? 58 : 52)
+                    .shadow(radius: 4)
+
+                Circle()
+                    .stroke(isSelected ? .white : .blue, lineWidth: 3)
+                    .frame(width: isSelected ? 50 : 44, height: isSelected ? 50 : 44)
+
+                Text("\(count)")
+                    .font(.headline)
+                    .fontWeight(.bold)
+                    .foregroundStyle(isSelected ? .white : .blue)
+                    .minimumScaleFactor(0.7)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct CheckInPreviewSheet: View {
+    let checkIn: CheckIn
+    let onClose: () -> Void
+    let onOpenDetail: () -> Void
+
+    private let imageService = ImageStorageService()
+
+    var body: some View {
+        HStack(spacing: 14) {
+            thumbnail
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(checkIn.name.isEmpty ? checkIn.locationDisplay : checkIn.name)
+                    .font(.headline)
+                    .lineLimit(1)
+
+                Label(checkIn.locationDisplay, systemImage: "mappin.circle")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+
+                HStack(spacing: 8) {
+                    Label(checkIn.formattedDate, systemImage: "calendar")
+                    Label(checkIn.isVisited ? "Đã đi" : "Muốn đi", systemImage: checkIn.isVisited ? "checkmark.circle.fill" : "bookmark.fill")
+                        .foregroundStyle(statusColor)
+                    Label(checkIn.category.rawValue, systemImage: checkIn.category.icon)
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            }
+
+            Spacer(minLength: 8)
+
+            VStack(spacing: 10) {
+                Button(action: onClose) {
+                    Image(systemName: "xmark")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 30, height: 30)
+                        .background(.thinMaterial)
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+
+                Button(action: onOpenDetail) {
+                    Image(systemName: "chevron.right")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.white)
+                        .frame(width: 34, height: 34)
+                        .background(.blue)
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(14)
+        .background(.regularMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(radius: 8)
+        .padding(.horizontal, 16)
+        .padding(.bottom, 24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+    }
+
+    @ViewBuilder
+    private var thumbnail: some View {
+        if let path = checkIn.photoPath,
+           let image = imageService.load(filename: path) {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+                .frame(width: 68, height: 68)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+        } else {
+            RoundedRectangle(cornerRadius: 12)
+                .fill(statusColor.opacity(0.16))
+                .frame(width: 68, height: 68)
+                .overlay {
+                    Image(systemName: checkIn.isVisited ? checkIn.category.icon : "bookmark.fill")
+                        .font(.title2)
+                        .foregroundStyle(statusColor)
+                }
+        }
+    }
+
+    private var statusColor: Color {
+        checkIn.isVisited ? categoryColor : .orange
+    }
+
+    private var categoryColor: Color {
+        switch checkIn.category {
+        case .extendedFamily: return .purple
+        case .family:         return .green
+        case .couple:         return .pink
+        case .solo:           return .blue
+        case .other:          return .gray
+        }
+    }
+}
+
+struct ClusterPreviewSheet: View {
+    let cluster: CheckInCluster
+    let onClose: () -> Void
+    let onZoomIn: () -> Void
+    let onOpenFirst: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("\(cluster.checkIns.count) địa điểm gần nhau")
+                        .font(.headline)
+
+                    Text(cluster.checkIns.prefix(3).map(\.name).joined(separator: ", "))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+
+                Spacer()
+
+                Button(action: onClose) {
+                    Image(systemName: "xmark")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 30, height: 30)
+                        .background(.thinMaterial)
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+            }
+
+            HStack(spacing: 10) {
+                Button(action: onZoomIn) {
+                    Label("Phóng to", systemImage: "plus.magnifyingglass")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                }
+                .buttonStyle(.borderedProminent)
+
+                Button(action: onOpenFirst) {
+                    Label("Mở gần nhất", systemImage: "chevron.right")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .padding(14)
+        .background(.regularMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(radius: 8)
+        .padding(.horizontal, 16)
+        .padding(.bottom, 24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
     }
 }
 

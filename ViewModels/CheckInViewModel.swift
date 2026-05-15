@@ -16,6 +16,28 @@ enum SortOption: String, CaseIterable {
     }
 }
 
+enum VisitStatusFilter: String, CaseIterable {
+    case all = "Tất cả"
+    case visited = "Đã đi"
+    case wishlist = "Muốn đi"
+
+    var icon: String {
+        switch self {
+        case .all: return "map"
+        case .visited: return "checkmark.circle.fill"
+        case .wishlist: return "bookmark.fill"
+        }
+    }
+
+    func matches(_ checkIn: CheckIn) -> Bool {
+        switch self {
+        case .all: return true
+        case .visited: return checkIn.isVisited
+        case .wishlist: return !checkIn.isVisited
+        }
+    }
+}
+
 @Observable
 class CheckInViewModel {
 
@@ -24,10 +46,12 @@ class CheckInViewModel {
     var errorMessage: String? = nil
     var searchText: String = ""
     var selectedCategory: PlaceCategory? = nil
+    var visitStatusFilter: VisitStatusFilter = .all
     var sortOption: SortOption = .newest  // thêm mới
 
     private let storage: StorageServiceProtocol
     private let imageService = ImageStorageService()
+    private let backupService = BackupService()
 
     init(storage: StorageServiceProtocol = StorageService()) {
         self.storage = storage
@@ -45,7 +69,9 @@ class CheckInViewModel {
             let matchCategory = selectedCategory == nil ||
                 item.category == selectedCategory
 
-            return matchSearch && matchCategory
+            let matchStatus = visitStatusFilter.matches(item)
+
+            return matchSearch && matchCategory && matchStatus
         }
 
         switch sortOption {
@@ -61,6 +87,14 @@ class CheckInViewModel {
 
     var totalCities: Int {
         Set(checkIns.map { $0.city }).count
+    }
+
+    var totalVisited: Int {
+        checkIns.filter(\.isVisited).count
+    }
+
+    var totalWishlist: Int {
+        checkIns.filter { !$0.isVisited }.count
     }
 
     func add(_ checkIn: CheckIn) {
@@ -81,6 +115,25 @@ class CheckInViewModel {
             checkIns[index] = checkIn
             storage.save(checkIns)
         }
+    }
+
+    func exportBackup() throws -> URL {
+        try backupService.exportBackup(checkIns: checkIns)
+    }
+
+    func importBackup(from url: URL) throws {
+        checkIns = try backupService.importBackup(from: url, currentCheckIns: checkIns)
+        storage.save(checkIns)
+    }
+
+    func clearAllData() {
+        checkIns.forEach { checkIn in
+            if let path = checkIn.photoPath {
+                imageService.delete(filename: path)
+            }
+        }
+        checkIns.removeAll()
+        storage.save(checkIns)
     }
 
     func clearError() {

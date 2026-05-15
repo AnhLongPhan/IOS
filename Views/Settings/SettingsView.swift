@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @Environment(CheckInViewModel.self) var viewModel
@@ -9,8 +10,10 @@ struct SettingsView: View {
     @AppStorage("showVisitedOnly") var showVisitedOnly: Bool = false
 
     @State private var showClearConfirm = false
-    @State private var showExportSheet  = false
-    @State private var exportText       = ""
+    @State private var showImportPicker = false
+    @State private var shareItem: ShareItem? = nil
+    @State private var alertMessage: AlertMessage? = nil
+    @State private var isProcessingBackup = false
 
     var body: some View {
         NavigationStack {
@@ -54,12 +57,20 @@ struct SettingsView: View {
                 }
 
                 // MARK: - Dữ liệu
-                Section("Dữ liệu") {
+                Section {
                     Button {
-                        exportData()
+                        exportBackup()
                     } label: {
-                        Label("Xuất dữ liệu JSON", systemImage: "square.and.arrow.up")
+                        Label("Xuất backup ZIP", systemImage: "square.and.arrow.up")
                     }
+                    .disabled(isProcessingBackup)
+
+                    Button {
+                        showImportPicker = true
+                    } label: {
+                        Label("Nhập backup ZIP", systemImage: "tray.and.arrow.down")
+                    }
+                    .disabled(isProcessingBackup)
 
                     Button(role: .destructive) {
                         showClearConfirm = true
@@ -67,6 +78,11 @@ struct SettingsView: View {
                         Label("Xoá tất cả dữ liệu", systemImage: "trash")
                             .foregroundStyle(.red)
                     }
+                    .disabled(isProcessingBackup)
+                } header: {
+                    Text("Dữ liệu")
+                } footer: {
+                    Text("Import sẽ gộp dữ liệu theo ID. Nếu trùng địa điểm, bản trong file backup sẽ thay thế bản hiện tại.")
                 }
 
                 // MARK: - Về app
@@ -98,44 +114,84 @@ struct SettingsView: View {
             } message: {
                 Text("Tất cả địa điểm và ảnh sẽ bị xoá vĩnh viễn.")
             }
-            .sheet(isPresented: $showExportSheet) {
-                ShareSheet(text: exportText)
+            .sheet(item: $shareItem) { item in
+                ShareSheet(items: [item.url])
+            }
+            .fileImporter(
+                isPresented: $showImportPicker,
+                allowedContentTypes: [.zip],
+                allowsMultipleSelection: false
+            ) { result in
+                importBackup(result: result)
+            }
+            .alert(item: $alertMessage) { message in
+                Alert(
+                    title: Text(message.title),
+                    message: Text(message.detail),
+                    dismissButton: .default(Text("OK"))
+                )
             }
         }
     }
 
-    // MARK: - Export JSON
-    private func exportData() {
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        encoder.outputFormatting     = .prettyPrinted
+    // MARK: - Backup
+    private func exportBackup() {
+        isProcessingBackup = true
+        defer { isProcessingBackup = false }
 
-        if let data = try? encoder.encode(viewModel.checkIns),
-           let json = String(data: data, encoding: .utf8) {
-            exportText      = json
-            showExportSheet = true
+        do {
+            shareItem = ShareItem(url: try viewModel.exportBackup())
+        } catch {
+            alertMessage = AlertMessage(
+                title: "Không thể xuất backup",
+                detail: error.localizedDescription
+            )
+        }
+    }
+
+    private func importBackup(result: Result<[URL], Error>) {
+        isProcessingBackup = true
+        defer { isProcessingBackup = false }
+
+        do {
+            guard let url = try result.get().first else { return }
+            try viewModel.importBackup(from: url)
+            alertMessage = AlertMessage(
+                title: "Đã nhập backup",
+                detail: "Dữ liệu và ảnh đã được gộp vào TravelPin."
+            )
+        } catch {
+            alertMessage = AlertMessage(
+                title: "Không thể nhập backup",
+                detail: error.localizedDescription
+            )
         }
     }
 
     // MARK: - Clear all
     private func clearAllData() {
-        let imageService = ImageStorageService()
-        viewModel.checkIns.forEach { checkIn in
-            if let path = checkIn.photoPath {
-                imageService.delete(filename: path)
-            }
-        }
-        viewModel.checkIns.removeAll()
+        viewModel.clearAllData()
     }
+}
+
+struct ShareItem: Identifiable {
+    let id = UUID()
+    let url: URL
+}
+
+struct AlertMessage: Identifiable {
+    let id = UUID()
+    let title: String
+    let detail: String
 }
 
 // MARK: - ShareSheet
 struct ShareSheet: UIViewControllerRepresentable {
-    let text: String
+    let items: [Any]
 
     func makeUIViewController(context: Context) -> UIActivityViewController {
         UIActivityViewController(
-            activityItems: [text],
+            activityItems: items,
             applicationActivities: nil
         )
     }

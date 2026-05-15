@@ -29,50 +29,79 @@ struct CheckInAnnotationView: View {
         VStack(spacing: 0) {
             // Label hiện khi tap
             if isTitleVisible {
-                Text(displayTitle)
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.primary)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.center)
-                    .frame(width: 180)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                    .shadow(radius: 2)
-                    .transition(.scale.combined(with: .opacity))
+                VStack(spacing: 3) {
+                    Text(displayTitle)
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.primary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.center)
+
+                    if !checkIn.isVisited {
+                        Label("Muốn đi", systemImage: "bookmark.fill")
+                            .font(.caption2)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.orange)
+                    }
+                }
+                .frame(width: 180)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .background(.white)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .shadow(radius: 2)
+                .transition(.scale.combined(with: .opacity))
             }
 
             // Pin
-            ZStack {
-                // Viền ngoài đổi màu theo phân loại
-                Circle()
-                    .fill(.white)
-                    .overlay(
-                        Circle()
-                            .stroke(categoryColor, lineWidth: 3)
-                    )
-                    .frame(width: 46, height: 46)
-                    .shadow(radius: 4)
-
-                if let image = thumbnail {
-                    // Có ảnh → hiện thumbnail
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 40, height: 40)
-                        .clipShape(Circle())
-                } else {
-                    // Không có ảnh → hiện icon category
+            ZStack(alignment: .bottomTrailing) {
+                ZStack {
                     Circle()
-                        .fill(categoryColor)
-                        .frame(width: 40, height: 40)
+                        .fill(.white)
+                        .overlay(
+                            Circle()
+                                .stroke(
+                                    pinColor,
+                                    style: StrokeStyle(
+                                        lineWidth: checkIn.isVisited ? 3 : 3.5,
+                                        dash: checkIn.isVisited ? [] : [5, 3]
+                                    )
+                                )
+                        )
+                        .frame(width: 46, height: 46)
+                        .shadow(radius: 4)
 
-                    Image(systemName: checkIn.category.icon)
-                        .font(.system(size: 16))
+                    if let image = thumbnail {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 40, height: 40)
+                            .clipShape(Circle())
+                            .opacity(checkIn.isVisited ? 1 : 0.78)
+                    } else {
+                        Circle()
+                            .fill(pinColor)
+                            .frame(width: 40, height: 40)
+
+                        Image(systemName: checkIn.isVisited ? checkIn.category.icon : "bookmark.fill")
+                            .font(.system(size: 16))
+                            .foregroundStyle(.white)
+                    }
+                }
+
+                if !checkIn.isVisited {
+                    Image(systemName: "clock.fill")
+                        .font(.system(size: 9, weight: .bold))
                         .foregroundStyle(.white)
+                        .frame(width: 18, height: 18)
+                        .background(.orange)
+                        .clipShape(Circle())
+                        .overlay(
+                            Circle()
+                                .stroke(.white, lineWidth: 2)
+                        )
+                        .offset(x: 4, y: 4)
                 }
             }
             .highPriorityGesture(
@@ -87,10 +116,14 @@ struct CheckInAnnotationView: View {
 
             // Mũi tên nhọn phía dưới
             Triangle()
-                .fill(thumbnail != nil ? .white : categoryColor)
+                .fill(thumbnail != nil ? .white : pinColor)
                 .frame(width: 12, height: 8)
                 .shadow(radius: 1)
         }
+    }
+
+    var pinColor: Color {
+        checkIn.isVisited ? categoryColor : .orange
     }
 
     var categoryColor: Color {
@@ -106,9 +139,7 @@ struct CheckInAnnotationView: View {
 
 #Preview {
     VStack(spacing: 20) {
-        // Pin có ảnh (dùng mock — sẽ hiện icon vì không có file thật)
         CheckInAnnotationView(checkIn: CheckIn.mockData[0])
-        // Pin không có ảnh
         CheckInAnnotationView(checkIn: CheckIn.mockData[1])
     }
     .padding()

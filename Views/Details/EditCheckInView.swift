@@ -20,9 +20,9 @@ struct EditCheckInView: View {
 
     @State private var name: String
     @State private var note: String
-    @State private var visitedAt: Date
+    @State private var visitedAt: Date?
     @State private var category: PlaceCategory
-    @State private var transportationMode: TransportationMode
+    @State private var transportationMode: TransportationMode?
     @State private var latitudeText: String
     @State private var longitudeText: String
     @State private var city: String
@@ -38,9 +38,9 @@ struct EditCheckInView: View {
         self.original      = checkIn
         _name              = State(initialValue: checkIn.name)
         _note              = State(initialValue: checkIn.note)
-        _visitedAt         = State(initialValue: checkIn.visitedAt)
+        _visitedAt         = State(initialValue: checkIn.isVisited ? checkIn.visitedAt : nil)
         _category          = State(initialValue: checkIn.category)
-        _transportationMode = State(initialValue: checkIn.transportationMode)
+        _transportationMode = State(initialValue: checkIn.isVisited ? checkIn.transportationMode : nil)
         _latitudeText      = State(initialValue: String(checkIn.latitude))
         _longitudeText     = State(initialValue: String(checkIn.longitude))
         _city              = State(initialValue: checkIn.city)
@@ -83,17 +83,21 @@ struct EditCheckInView: View {
                     TextField("Tên địa điểm *", text: $name)
                         .autocorrectionDisabled()
 
-                    DatePicker(
-                        "Ngày tham quan",
-                        selection: $visitedAt,
-                        displayedComponents: [.date]
-                    )
+                    if isVisited {
+                        DatePicker(
+                            "Ngày tham quan",
+                            selection: visitedAtBinding,
+                            displayedComponents: [.date]
+                        )
+                    } else {
+                        LabeledContent("Ngày tham quan", value: "Trống")
+                    }
 
-                    Toggle("Đã tham quan", isOn: $isVisited)
+                    Toggle(isVisited ? "Đã tham quan" : "Chưa đi", isOn: $isVisited)
                 }
 
                 // MARK: - Category
-                Section("Loại địa điểm") {
+                Section("Tham gia cùng") {
                     CategoryPickerView(selected: $category)
                         .listRowInsets(EdgeInsets(
                             top: 8, leading: 0,
@@ -103,11 +107,15 @@ struct EditCheckInView: View {
 
                 Section("Phương tiện di chuyển") {
                     Picker("Phương tiện", selection: $transportationMode) {
+                        Text("Chưa chọn")
+                            .tag(Optional<TransportationMode>.none)
+
                         ForEach(TransportationMode.allCases, id: \.self) { mode in
                             Label(mode.rawValue, systemImage: mode.icon)
-                                .tag(mode)
+                                .tag(Optional(mode))
                         }
                     }
+                    .disabled(!isVisited)
                 }
 
                 // MARK: - Vị trí
@@ -188,6 +196,9 @@ struct EditCheckInView: View {
             }
             .onChange(of: latitudeText) { _, _ in triggerGeocode() }
             .onChange(of: longitudeText) { _, _ in triggerGeocode() }
+            .onChange(of: isVisited) { _, newValue in
+                updateVisitDefaults(isVisited: newValue)
+            }
             .sheet(isPresented: $showMapPicker) {
                 MapPickerView(initialCoordinate: currentCoordinate) { coord in
                     latitudeText = String(format: "%.6f", coord.latitude)
@@ -196,6 +207,13 @@ struct EditCheckInView: View {
                 }
             }
         }
+    }
+
+    private var visitedAtBinding: Binding<Date> {
+        Binding(
+            get: { visitedAt ?? Date() },
+            set: { visitedAt = $0 }
+        )
     }
 
     private func triggerGeocode() {
@@ -226,6 +244,16 @@ struct EditCheckInView: View {
             isGeocoding = false
             city = result.city
             country = result.country
+        }
+    }
+
+    private func updateVisitDefaults(isVisited: Bool) {
+        if isVisited {
+            visitedAt = visitedAt ?? Date()
+            transportationMode = transportationMode ?? .car
+        } else {
+            visitedAt = nil
+            transportationMode = nil
         }
     }
 
@@ -265,9 +293,9 @@ struct EditCheckInView: View {
         var updated          = original
         updated.name         = name.trimmingCharacters(in: .whitespaces)
         updated.note         = note
-        updated.visitedAt    = visitedAt
+        updated.visitedAt    = isVisited ? (visitedAt ?? Date()) : Date()
         updated.category     = category
-        updated.transportationMode = transportationMode
+        updated.transportationMode = isVisited ? (transportationMode ?? .other) : .other
         updated.latitude     = Double(latitudeText) ?? original.latitude
         updated.longitude    = Double(longitudeText) ?? original.longitude
         updated.city         = city

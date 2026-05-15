@@ -39,8 +39,12 @@ class ImageStorageService {
         try? FileManager.default.removeItem(at: url)
     }
 
+    func write(_ data: Data, filename: String) throws {
+        try data.write(to: fileURL(for: filename), options: .atomic)
+    }
+
     // Build URL từ filename
-    private func fileURL(for filename: String) -> URL {
+    func fileURL(for filename: String) -> URL {
         FileManager.default
             .urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent(filename)

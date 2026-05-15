@@ -10,7 +10,7 @@ import SwiftUI
 struct CheckInRowView: View {
     let checkIn: CheckIn
     var index: Int? = nil
-    private let imageService = ImageStorageService() // thêm dòng này
+    private let imageService = ImageStorageService()
 
     var body: some View {
         HStack(spacing: 12) {
@@ -24,30 +24,40 @@ struct CheckInRowView: View {
                     .clipShape(Circle())
             }
 
-            // Thay ZStack cũ bằng đoạn này
-            ZStack {
+            ZStack(alignment: .bottomTrailing) {
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(categoryColor.opacity(0.15))
+                    .fill(rowColor.opacity(0.15))
                     .frame(width: 52, height: 52)
 
                 if let path = checkIn.photoPath,
                    let image = imageService.load(filename: path) {
-                    // Có ảnh → hiện thumbnail
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFill()
                         .frame(width: 52, height: 52)
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                 } else {
-                    // Không có ảnh → hiện icon category
-                    Image(systemName: checkIn.category.icon)
+                    Image(systemName: checkIn.isVisited ? checkIn.category.icon : "bookmark.fill")
                         .font(.system(size: 20))
-                        .foregroundStyle(categoryColor)
+                        .foregroundStyle(rowColor)
+                }
+
+                if !checkIn.isVisited {
+                    Image(systemName: "clock.fill")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 18, height: 18)
+                        .background(.orange)
+                        .clipShape(Circle())
+                        .overlay(
+                            Circle()
+                                .stroke(.white, lineWidth: 2)
+                        )
+                        .offset(x: 5, y: 5)
                 }
             }
 
-            // Phần info giữ nguyên như cũ
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 5) {
                 HStack {
                     Text(checkIn.name)
                         .font(.headline)
@@ -57,19 +67,36 @@ struct CheckInRowView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+
                 Text(checkIn.locationDisplay)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-                if !checkIn.note.isEmpty {
-                    Text(checkIn.note)
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                        .lineLimit(1)
+
+                HStack(spacing: 6) {
+                    Label(checkIn.isVisited ? "Đã đi" : "Muốn đi", systemImage: checkIn.isVisited ? "checkmark.circle.fill" : "bookmark.fill")
+                        .font(.caption2)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(rowColor)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(rowColor.opacity(0.12))
+                        .clipShape(Capsule())
+
+                    if !checkIn.note.isEmpty {
+                        Text(checkIn.note)
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(1)
+                    }
                 }
             }
         }
         .padding(.vertical, 4)
+    }
+
+    var rowColor: Color {
+        checkIn.isVisited ? categoryColor : .orange
     }
 
     var categoryColor: Color {

@@ -14,9 +14,9 @@ struct AddCheckInView: View {
     // Form fields
     @State private var name: String = ""
     @State private var note: String = ""
-    @State private var visitedAt: Date = Date()
+    @State private var visitedAt: Date? = Date()
     @State private var category: PlaceCategory = .other
-    @State private var transportationMode: TransportationMode = .car
+    @State private var transportationMode: TransportationMode? = .car
     @State private var latitudeText: String = ""
     @State private var longitudeText: String = ""
     @State private var city: String = ""
@@ -54,17 +54,21 @@ struct AddCheckInView: View {
                     TextField("Tên địa điểm *", text: $name)
                         .autocorrectionDisabled()
 
-                    DatePicker(
-                        "Ngày tham quan",
-                        selection: $visitedAt,
-                        displayedComponents: [.date]
-                    )
+                    if isVisited {
+                        DatePicker(
+                            "Ngày tham quan",
+                            selection: visitedAtBinding,
+                            displayedComponents: [.date]
+                        )
+                    } else {
+                        LabeledContent("Ngày tham quan", value: "Trống")
+                    }
 
-                    Toggle("Đã tham quan", isOn: $isVisited)
+                    Toggle(isVisited ? "Đã tham quan" : "Chưa đi", isOn: $isVisited)
                 }
 
                 // MARK: - Category
-                Section("Loại địa điểm") {
+                Section("Tham gia cùng") {
                     CategoryPickerView(selected: $category)
                         .listRowInsets(EdgeInsets(
                             top: 8, leading: 0,
@@ -74,11 +78,15 @@ struct AddCheckInView: View {
 
                 Section("Phương tiện di chuyển") {
                     Picker("Phương tiện", selection: $transportationMode) {
+                        Text("Chưa chọn")
+                            .tag(Optional<TransportationMode>.none)
+
                         ForEach(TransportationMode.allCases, id: \.self) { mode in
                             Label(mode.rawValue, systemImage: mode.icon)
-                                .tag(mode)
+                                .tag(Optional(mode))
                         }
                     }
+                    .disabled(!isVisited)
                 }
 
                 // MARK: - Tọa độ + auto-fill
@@ -210,6 +218,9 @@ struct AddCheckInView: View {
             // Auto-geocode khi nhập tọa độ xong
             .onChange(of: latitudeText)  { _, _ in triggerGeocode() }
             .onChange(of: longitudeText) { _, _ in triggerGeocode() }
+            .onChange(of: isVisited) { _, newValue in
+                updateVisitDefaults(isVisited: newValue)
+            }
             .sheet(isPresented: $showSearchSheet) {
                 LocationSearchView { result in
                     latitudeText  = String(format: "%.6f", result.latitude)
@@ -229,6 +240,13 @@ struct AddCheckInView: View {
                 }
             }
         }
+    }
+
+    private var visitedAtBinding: Binding<Date> {
+        Binding(
+            get: { visitedAt ?? Date() },
+            set: { visitedAt = $0 }
+        )
     }
 
     // MARK: - Dùng vị trí GPS hiện tại
@@ -274,6 +292,16 @@ struct AddCheckInView: View {
         }
     }
 
+    private func updateVisitDefaults(isVisited: Bool) {
+        if isVisited {
+            visitedAt = visitedAt ?? Date()
+            transportationMode = transportationMode ?? .car
+        } else {
+            visitedAt = nil
+            transportationMode = nil
+        }
+    }
+
     // MARK: - Save
     private func saveCheckIn() {
         showValidationError = true
@@ -291,11 +319,11 @@ struct AddCheckInView: View {
             note: note,
             latitude: Double(latitudeText) ?? 0,
             longitude: Double(longitudeText) ?? 0,
-            visitedAt: visitedAt,
+            visitedAt: isVisited ? (visitedAt ?? Date()) : Date(),
             city: city,
             country: country,
             category: category,
-            transportationMode: transportationMode,
+            transportationMode: isVisited ? (transportationMode ?? .other) : .other,
             photoPath: photoFilename,
             isVisited: isVisited
         )

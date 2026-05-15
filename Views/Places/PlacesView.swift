@@ -4,28 +4,28 @@ struct PlacesView: View {
     @Environment(CheckInViewModel.self) var viewModel
 
     var sortedCheckIns: [CheckIn] {
-        viewModel.checkIns
-            .filter { checkIn in
-                let matchesSearch = viewModel.searchText.isEmpty ||
-                    checkIn.name.localizedCaseInsensitiveContains(viewModel.searchText) ||
-                    checkIn.note.localizedCaseInsensitiveContains(viewModel.searchText) ||
-                    checkIn.city.localizedCaseInsensitiveContains(viewModel.searchText)
-
-                let matchesCategory = viewModel.selectedCategory == nil ||
-                    checkIn.category == viewModel.selectedCategory
-
-                return matchesSearch && matchesCategory
-            }
-            .sorted { $0.visitedAt < $1.visitedAt }
+        viewModel.filteredCheckIns
     }
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 // Filter bar
-                CategoryFilterView(
-                    selectedCategory: Bindable(viewModel).selectedCategory
-                )
+                VStack(spacing: 10) {
+                    Picker("Trạng thái", selection: Bindable(viewModel).visitStatusFilter) {
+                        ForEach(VisitStatusFilter.allCases, id: \.self) { filter in
+                            Label(filter.rawValue, systemImage: filter.icon)
+                                .tag(filter)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+
+                    CategoryFilterView(
+                        selectedCategory: Bindable(viewModel).selectedCategory
+                    )
+                }
                 .background(Color(.systemBackground))
 
                 Divider()
@@ -73,16 +73,14 @@ struct PlacesView: View {
     var emptyStateView: some View {
         VStack(spacing: 16) {
             Spacer()
-            Image(systemName: "mappin.slash")
+            Image(systemName: viewModel.visitStatusFilter == .wishlist ? "bookmark.slash" : "mappin.slash")
                 .font(.system(size: 56))
                 .foregroundStyle(.secondary)
-            Text(viewModel.searchText.isEmpty
-                 ? "Chưa có địa điểm nào"
-                 : "Không tìm thấy kết quả")
+            Text(emptyStateTitle)
                 .font(.headline)
                 .foregroundStyle(.secondary)
             if viewModel.searchText.isEmpty {
-                Text("Thêm địa điểm bằng cách bấm + trên bản đồ")
+                Text(emptyStateMessage)
                     .font(.subheadline)
                     .foregroundStyle(.tertiary)
                     .multilineTextAlignment(.center)
@@ -90,6 +88,26 @@ struct PlacesView: View {
             Spacer()
         }
         .padding()
+    }
+
+    private var emptyStateTitle: String {
+        if !viewModel.searchText.isEmpty {
+            return "Không tìm thấy kết quả"
+        }
+
+        switch viewModel.visitStatusFilter {
+        case .all: return "Chưa có địa điểm nào"
+        case .visited: return "Chưa có địa điểm đã đi"
+        case .wishlist: return "Chưa có wishlist"
+        }
+    }
+
+    private var emptyStateMessage: String {
+        switch viewModel.visitStatusFilter {
+        case .all: return "Thêm địa điểm bằng cách bấm + trên bản đồ"
+        case .visited: return "Đổi trạng thái địa điểm thành đã tham quan khi bạn hoàn tất chuyến đi"
+        case .wishlist: return "Tắt Đã tham quan khi thêm địa điểm để lưu vào wishlist"
+        }
     }
 }
 
