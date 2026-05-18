@@ -1,6 +1,13 @@
 import SwiftUI
 import MapKit
 
+private extension Array where Element == String {
+    func removingDuplicates() -> [String] {
+        var seen = Set<String>()
+        return filter { seen.insert($0).inserted }
+    }
+}
+
 // Model kết quả search
 struct SearchResult: Identifiable {
     let id = UUID()
@@ -10,6 +17,7 @@ struct SearchResult: Identifiable {
     let longitude: Double
     let city: String
     let country: String
+    let formattedAddress: String
 }
 
 struct LocationSearchView: View {
@@ -167,7 +175,20 @@ struct LocationSearchView: View {
                     city:      placemark.locality
                                 ?? placemark.administrativeArea
                                 ?? "",
-                    country:   placemark.country ?? ""
+                    country:   placemark.country ?? "",
+                    formattedAddress: [
+                        placemark.name,
+                        placemark.thoroughfare,
+                        placemark.subLocality,
+                        placemark.locality,
+                        placemark.administrativeArea,
+                        placemark.postalCode,
+                        placemark.country
+                    ]
+                    .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { !$0.isEmpty }
+                    .removingDuplicates()
+                    .joined(separator: ", ")
                 )
             }
         } catch {

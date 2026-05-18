@@ -84,7 +84,7 @@ struct CheckInAnnotationView: View {
                             .fill(pinColor)
                             .frame(width: 40, height: 40)
 
-                        Image(systemName: checkIn.isVisited ? checkIn.category.icon : "bookmark.fill")
+                        Image(systemName: checkIn.isVisited ? checkIn.placeType.icon : "bookmark.fill")
                             .font(.system(size: 16))
                             .foregroundStyle(.white)
                     }
@@ -123,16 +123,16 @@ struct CheckInAnnotationView: View {
     }
 
     var pinColor: Color {
-        checkIn.isVisited ? categoryColor : .orange
+        checkIn.isVisited ? placeTypeColor : .orange
     }
 
-    var categoryColor: Color {
-        switch checkIn.category {
-        case .extendedFamily: return .purple
-        case .family:         return .green
-        case .couple:         return .pink
-        case .solo:           return .blue
-        case .other:          return .gray
+    var placeTypeColor: Color {
+        switch checkIn.placeType {
+        case .travel: return .blue
+        case .food: return .red
+        case .checkIn: return .purple
+        case .coffee: return .brown
+        case .other: return .gray
         }
     }
 }

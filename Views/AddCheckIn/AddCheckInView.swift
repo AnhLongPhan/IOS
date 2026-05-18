@@ -15,12 +15,15 @@ struct AddCheckInView: View {
     @State private var name: String = ""
     @State private var note: String = ""
     @State private var visitedAt: Date? = Date()
+    @State private var placeType: PlaceType = .travel
+    @State private var customPlaceCategoryID: UUID? = nil
     @State private var category: PlaceCategory = .other
     @State private var transportationMode: TransportationMode? = .car
     @State private var latitudeText: String = ""
     @State private var longitudeText: String = ""
     @State private var city: String = ""
     @State private var country: String = ""
+    @State private var formattedAddress: String = ""
     @State private var isVisited: Bool = true
     @State private var selectedImage: UIImage? = nil
     @State private var showValidationError = false
@@ -32,9 +35,15 @@ struct AddCheckInView: View {
     @State private var geocodeTask: Task<Void, Never>? = nil
 
     var isValid: Bool {
-        !name.trimmingCharacters(in: .whitespaces).isEmpty &&
         Double(latitudeText) != nil &&
         Double(longitudeText) != nil
+    }
+
+    var currentCoordinate: CLLocationCoordinate2D? {
+        guard let latitude = Double(latitudeText),
+              let longitude = Double(longitudeText) else { return nil }
+
+        return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
     }
 
     var body: some View {
@@ -42,7 +51,10 @@ struct AddCheckInView: View {
             Form {
                 // MARK: - Ảnh
                 Section("Ảnh") {
-                    ImageSectionView(selectedImage: $selectedImage)
+                    ImageSectionView(
+                        selectedImage: $selectedImage,
+                        onCoordinateFound: applyPhotoCoordinate
+                    )
                         .listRowInsets(EdgeInsets(
                             top: 8, leading: 8,
                             bottom: 8, trailing: 8
@@ -51,7 +63,7 @@ struct AddCheckInView: View {
 
                 // MARK: - Thông tin
                 Section("Thông tin") {
-                    TextField("Tên địa điểm *", text: $name)
+                    TextField("Tên lưu (tuỳ chọn)", text: $name)
                         .autocorrectionDisabled()
 
                     if isVisited {
@@ -65,6 +77,18 @@ struct AddCheckInView: View {
                     }
 
                     Toggle(isVisited ? "Đã tham quan" : "Chưa đi", isOn: $isVisited)
+                }
+
+                // MARK: - Place type
+                Section("Phân loại") {
+                    PlaceTypePickerView(
+                        selected: $placeType,
+                        selectedCustomCategoryID: $customPlaceCategoryID
+                    )
+                        .listRowInsets(EdgeInsets(
+                            top: 8, leading: 0,
+                            bottom: 8, trailing: 0
+                        ))
                 }
 
                 // MARK: - Category
@@ -169,9 +193,9 @@ struct AddCheckInView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
-                    } else if !city.isEmpty || !country.isEmpty {
+                    } else if !addressSummary.isEmpty {
                         Label(
-                            "\(city)\(city.isEmpty ? "" : ", ")\(country)",
+                            addressSummary,
                             systemImage: "mappin.circle.fill"
                         )
                         .font(.caption)
@@ -187,7 +211,7 @@ struct AddCheckInView: View {
                 // Validation error
                 if showValidationError && !isValid {
                     Section {
-                        Text("Vui lòng nhập tên và tọa độ hợp lệ")
+                        Text("Vui lòng chọn tọa độ hợp lệ")
                             .foregroundStyle(.red)
                             .font(.caption)
                     }
@@ -225,15 +249,16 @@ struct AddCheckInView: View {
                 LocationSearchView { result in
                     latitudeText  = String(format: "%.6f", result.latitude)
                     longitudeText = String(format: "%.6f", result.longitude)
-                    city          = result.city
-                    country       = result.country
+                    city             = result.city
+                    country          = result.country
+                    formattedAddress = result.formattedAddress.isEmpty ? result.address : result.formattedAddress
                     if name.isEmpty {
                         name = result.name
                     }
                 }
             }
             .sheet(isPresented: $showMapPicker) {
-                MapPickerView { coord in
+                MapPickerView(initialCoordinate: currentCoordinate) { coord in
                     latitudeText  = String(format: "%.6f", coord.latitude)
                     longitudeText = String(format: "%.6f", coord.longitude)
                     triggerGeocode()
@@ -242,11 +267,40 @@ struct AddCheckInView: View {
         }
     }
 
+    private var addressSummary: String {
+        if !formattedAddress.isEmpty {
+            return formattedAddress
+        }
+
+        return [city, country]
+            .filter { !$0.isEmpty }
+            .joined(separator: ", ")
+    }
+
+    private var saveTitle: String {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedName.isEmpty {
+            return trimmedName
+        }
+
+        if !addressSummary.isEmpty {
+            return addressSummary
+        }
+
+        return placeType.rawValue
+    }
+
     private var visitedAtBinding: Binding<Date> {
         Binding(
             get: { visitedAt ?? Date() },
             set: { visitedAt = $0 }
         )
+    }
+
+    private func applyPhotoCoordinate(_ coordinate: CLLocationCoordinate2D) {
+        latitudeText = String(format: "%.6f", coordinate.latitude)
+        longitudeText = String(format: "%.6f", coordinate.longitude)
+        triggerGeocode()
     }
 
     // MARK: - Dùng vị trí GPS hiện tại
@@ -287,8 +341,9 @@ struct AddCheckInView: View {
             }
 
             isGeocoding = false
-            city    = result.city
+            city = result.city
             country = result.country
+            formattedAddress = result.formattedAddress
         }
     }
 
@@ -315,13 +370,16 @@ struct AddCheckInView: View {
         }
 
         let newCheckIn = CheckIn(
-            name: name.trimmingCharacters(in: .whitespaces),
+            name: saveTitle,
             note: note,
             latitude: Double(latitudeText) ?? 0,
             longitude: Double(longitudeText) ?? 0,
             visitedAt: isVisited ? (visitedAt ?? Date()) : Date(),
             city: city,
             country: country,
+            formattedAddress: formattedAddress,
+            placeType: placeType,
+            customPlaceCategoryID: customPlaceCategoryID,
             category: category,
             transportationMode: isVisited ? (transportationMode ?? .other) : .other,
             photoPath: photoFilename,
@@ -337,4 +395,5 @@ struct AddCheckInView: View {
     AddCheckInView()
         .environment(CheckInViewModel())
         .environment(LocationService())
+        .environment(UserProfileStore())
 }

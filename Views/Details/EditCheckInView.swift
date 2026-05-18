@@ -21,12 +21,15 @@ struct EditCheckInView: View {
     @State private var name: String
     @State private var note: String
     @State private var visitedAt: Date?
+    @State private var placeType: PlaceType
+    @State private var customPlaceCategoryID: UUID?
     @State private var category: PlaceCategory
     @State private var transportationMode: TransportationMode?
     @State private var latitudeText: String
     @State private var longitudeText: String
     @State private var city: String
     @State private var country: String
+    @State private var formattedAddress: String
     @State private var isVisited: Bool
     @State private var selectedImage: UIImage?     // ảnh mới chọn
     @State private var showValidationError = false
@@ -39,12 +42,15 @@ struct EditCheckInView: View {
         _name              = State(initialValue: checkIn.name)
         _note              = State(initialValue: checkIn.note)
         _visitedAt         = State(initialValue: checkIn.isVisited ? checkIn.visitedAt : nil)
+        _placeType         = State(initialValue: checkIn.placeType)
+        _customPlaceCategoryID = State(initialValue: checkIn.customPlaceCategoryID)
         _category          = State(initialValue: checkIn.category)
         _transportationMode = State(initialValue: checkIn.isVisited ? checkIn.transportationMode : nil)
         _latitudeText      = State(initialValue: String(checkIn.latitude))
         _longitudeText     = State(initialValue: String(checkIn.longitude))
         _city              = State(initialValue: checkIn.city)
         _country           = State(initialValue: checkIn.country)
+        _formattedAddress  = State(initialValue: checkIn.formattedAddress)
         _isVisited         = State(initialValue: checkIn.isVisited)
         // Load ảnh cũ vào preview nếu có
         if let path = checkIn.photoPath {
@@ -54,7 +60,6 @@ struct EditCheckInView: View {
     }
 
     var isValid: Bool {
-        !name.trimmingCharacters(in: .whitespaces).isEmpty &&
         Double(latitudeText) != nil &&
         Double(longitudeText) != nil
     }
@@ -71,7 +76,10 @@ struct EditCheckInView: View {
             Form {
                 // MARK: - Ảnh
                 Section("Ảnh") {
-                    ImageSectionView(selectedImage: $selectedImage)
+                    ImageSectionView(
+                        selectedImage: $selectedImage,
+                        onCoordinateFound: applyPhotoCoordinate
+                    )
                         .listRowInsets(EdgeInsets(
                             top: 8, leading: 8,
                             bottom: 8, trailing: 8
@@ -80,7 +88,7 @@ struct EditCheckInView: View {
 
                 // MARK: - Thông tin
                 Section("Thông tin") {
-                    TextField("Tên địa điểm *", text: $name)
+                    TextField("Tên lưu (tuỳ chọn)", text: $name)
                         .autocorrectionDisabled()
 
                     if isVisited {
@@ -94,6 +102,18 @@ struct EditCheckInView: View {
                     }
 
                     Toggle(isVisited ? "Đã tham quan" : "Chưa đi", isOn: $isVisited)
+                }
+
+                // MARK: - Place type
+                Section("Phân loại") {
+                    PlaceTypePickerView(
+                        selected: $placeType,
+                        selectedCustomCategoryID: $customPlaceCategoryID
+                    )
+                        .listRowInsets(EdgeInsets(
+                            top: 8, leading: 0,
+                            bottom: 8, trailing: 0
+                        ))
                 }
 
                 // MARK: - Category
@@ -164,9 +184,9 @@ struct EditCheckInView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
-                    } else if !city.isEmpty || !country.isEmpty {
+                    } else if !addressSummary.isEmpty {
                         Label(
-                            "\(city)\(city.isEmpty ? "" : ", ")\(country)",
+                            addressSummary,
                             systemImage: "mappin.circle.fill"
                         )
                         .font(.caption)
@@ -209,11 +229,40 @@ struct EditCheckInView: View {
         }
     }
 
+    private var addressSummary: String {
+        if !formattedAddress.isEmpty {
+            return formattedAddress
+        }
+
+        return [city, country]
+            .filter { !$0.isEmpty }
+            .joined(separator: ", ")
+    }
+
+    private var saveTitle: String {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedName.isEmpty {
+            return trimmedName
+        }
+
+        if !addressSummary.isEmpty {
+            return addressSummary
+        }
+
+        return placeType.rawValue
+    }
+
     private var visitedAtBinding: Binding<Date> {
         Binding(
             get: { visitedAt ?? Date() },
             set: { visitedAt = $0 }
         )
+    }
+
+    private func applyPhotoCoordinate(_ coordinate: CLLocationCoordinate2D) {
+        latitudeText = String(format: "%.6f", coordinate.latitude)
+        longitudeText = String(format: "%.6f", coordinate.longitude)
+        triggerGeocode()
     }
 
     private func triggerGeocode() {
@@ -244,6 +293,7 @@ struct EditCheckInView: View {
             isGeocoding = false
             city = result.city
             country = result.country
+            formattedAddress = result.formattedAddress
         }
     }
 
@@ -291,7 +341,7 @@ struct EditCheckInView: View {
         }
 
         var updated          = original
-        updated.name         = name.trimmingCharacters(in: .whitespaces)
+        updated.name         = saveTitle
         updated.note         = note
         updated.visitedAt    = isVisited ? (visitedAt ?? Date()) : Date()
         updated.category     = category
@@ -300,6 +350,9 @@ struct EditCheckInView: View {
         updated.longitude    = Double(longitudeText) ?? original.longitude
         updated.city         = city
         updated.country      = country
+        updated.formattedAddress = formattedAddress
+        updated.placeType    = placeType
+        updated.customPlaceCategoryID = customPlaceCategoryID
         updated.isVisited    = isVisited
         updated.photoPath    = newPhotoPath
 

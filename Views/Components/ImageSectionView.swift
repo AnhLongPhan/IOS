@@ -5,10 +5,13 @@
 //  Created by longanh on 14/5/26.
 //
 
+import CoreLocation
 import SwiftUI
 
 struct ImageSectionView: View {
     @Binding var selectedImage: UIImage?
+    var onCoordinateFound: (CLLocationCoordinate2D) -> Void = { _ in }
+
     @State private var showCamera = false
     @State private var showCameraUnavailable = false
     @State private var hasSelectedImage = false
@@ -60,13 +63,16 @@ struct ImageSectionView: View {
                     }
 
                     // Thư viện
-                    PhotoPickerView(image: $selectedImage)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.85)
-                        .frame(minWidth: 145, maxWidth: 170)
-                        .padding(.vertical, 10)
-                        .background(Color(.systemGray5))
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                    PhotoPickerView(
+                        image: $selectedImage,
+                        onCoordinateFound: onCoordinateFound
+                    )
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+                    .frame(minWidth: 145, maxWidth: 170)
+                    .padding(.vertical, 10)
+                    .background(Color(.systemGray5))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
                 }
             }
         }

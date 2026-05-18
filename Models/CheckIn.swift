@@ -14,6 +14,9 @@ struct CheckIn: Identifiable, Codable , Hashable  {
     var visitedAt: Date = Date()
     var city: String = ""
     var country: String = ""
+    var formattedAddress: String = ""
+    var placeType: PlaceType = .travel
+    var customPlaceCategoryID: UUID? = nil
     var category: PlaceCategory = .other
     var transportationMode: TransportationMode = .car
     var photoPath: String? = nil
@@ -28,6 +31,9 @@ struct CheckIn: Identifiable, Codable , Hashable  {
         visitedAt: Date = Date(),
         city: String = "",
         country: String = "",
+        formattedAddress: String = "",
+        placeType: PlaceType = .travel,
+        customPlaceCategoryID: UUID? = nil,
         category: PlaceCategory = .other,
         transportationMode: TransportationMode = .car,
         photoPath: String? = nil,
@@ -41,6 +47,9 @@ struct CheckIn: Identifiable, Codable , Hashable  {
         self.visitedAt = visitedAt
         self.city = city
         self.country = country
+        self.formattedAddress = formattedAddress
+        self.placeType = placeType
+        self.customPlaceCategoryID = customPlaceCategoryID
         self.category = category
         self.transportationMode = transportationMode
         self.photoPath = photoPath
@@ -49,7 +58,7 @@ struct CheckIn: Identifiable, Codable , Hashable  {
     
     var locationDisplay: String {
         if city.isEmpty && country.isEmpty {
-            return "Unknow location"
+            return formattedAddress.isEmpty ? "Unknown location" : formattedAddress
         }
         if city.isEmpty {
             return country
@@ -58,6 +67,10 @@ struct CheckIn: Identifiable, Codable , Hashable  {
             return city
         }
         return "\(city), \(country)"
+    }
+
+    var addressDisplay: String {
+        formattedAddress.isEmpty ? locationDisplay : formattedAddress
     }
     
     var formattedDate: String {
@@ -78,6 +91,9 @@ extension CheckIn {
         case visitedAt
         case city
         case country
+        case formattedAddress
+        case placeType
+        case customPlaceCategoryID
         case category
         case transportationMode
         case photoPath
@@ -95,10 +111,31 @@ extension CheckIn {
         visitedAt = try container.decodeIfPresent(Date.self, forKey: .visitedAt) ?? Date()
         city = try container.decodeIfPresent(String.self, forKey: .city) ?? ""
         country = try container.decodeIfPresent(String.self, forKey: .country) ?? ""
+        formattedAddress = try container.decodeIfPresent(String.self, forKey: .formattedAddress) ?? ""
+        placeType = try container.decodeIfPresent(PlaceType.self, forKey: .placeType) ?? .travel
+        customPlaceCategoryID = try container.decodeIfPresent(UUID.self, forKey: .customPlaceCategoryID)
         category = try container.decodeIfPresent(PlaceCategory.self, forKey: .category) ?? .other
         transportationMode = try container.decodeIfPresent(TransportationMode.self, forKey: .transportationMode) ?? .car
         photoPath = try container.decodeIfPresent(String.self, forKey: .photoPath)
         isVisited = try container.decodeIfPresent(Bool.self, forKey: .isVisited) ?? true
+    }
+}
+
+enum PlaceType: String, Codable, CaseIterable {
+    case travel = "Du lịch"
+    case food = "Ăn uống"
+    case checkIn = "Check-in"
+    case coffee = "Cà phê"
+    case other = "Khác"
+
+    var icon: String {
+        switch self {
+        case .travel: return "suitcase.fill"
+        case .food: return "fork.knife"
+        case .checkIn: return "camera.fill"
+        case .coffee: return "cup.and.saucer.fill"
+        case .other: return "ellipsis.circle.fill"
+        }
     }
 }
 

@@ -45,6 +45,7 @@ class CheckInViewModel {
     var isLoading: Bool = false
     var errorMessage: String? = nil
     var searchText: String = ""
+    var selectedPlaceType: PlaceType? = nil
     var selectedCategory: PlaceCategory? = nil
     var visitStatusFilter: VisitStatusFilter = .all
     var sortOption: SortOption = .newest  // thêm mới
@@ -64,14 +65,20 @@ class CheckInViewModel {
             let matchSearch = searchText.isEmpty ||
                 item.name.localizedCaseInsensitiveContains(searchText) ||
                 item.note.localizedCaseInsensitiveContains(searchText) ||
-                item.city.localizedCaseInsensitiveContains(searchText)
+                item.city.localizedCaseInsensitiveContains(searchText) ||
+                item.country.localizedCaseInsensitiveContains(searchText) ||
+                item.formattedAddress.localizedCaseInsensitiveContains(searchText) ||
+                item.placeType.rawValue.localizedCaseInsensitiveContains(searchText)
+
+            let matchPlaceType = selectedPlaceType == nil ||
+                item.placeType == selectedPlaceType
 
             let matchCategory = selectedCategory == nil ||
                 item.category == selectedCategory
 
             let matchStatus = visitStatusFilter.matches(item)
 
-            return matchSearch && matchCategory && matchStatus
+            return matchSearch && matchPlaceType && matchCategory && matchStatus
         }
 
         switch sortOption {
@@ -82,11 +89,11 @@ class CheckInViewModel {
     }
 
     var totalCountries: Int {
-        Set(checkIns.map { $0.country }).count
+        Set(checkIns.map(\.country).filter { !$0.isEmpty }).count
     }
 
     var totalCities: Int {
-        Set(checkIns.map { $0.city }).count
+        Set(checkIns.map(\.city).filter { !$0.isEmpty }).count
     }
 
     var totalVisited: Int {

@@ -37,7 +37,7 @@ struct CheckInRowView: View {
                         .frame(width: 52, height: 52)
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                 } else {
-                    Image(systemName: checkIn.isVisited ? checkIn.category.icon : "bookmark.fill")
+                    Image(systemName: checkIn.isVisited ? checkIn.placeType.icon : "bookmark.fill")
                         .font(.system(size: 20))
                         .foregroundStyle(rowColor)
                 }
@@ -68,13 +68,13 @@ struct CheckInRowView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                Text(checkIn.locationDisplay)
+                Text(checkIn.addressDisplay)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
 
                 HStack(spacing: 6) {
-                    Label(checkIn.isVisited ? "Đã đi" : "Muốn đi", systemImage: checkIn.isVisited ? "checkmark.circle.fill" : "bookmark.fill")
+                    Label(checkIn.placeType.rawValue, systemImage: checkIn.placeType.icon)
                         .font(.caption2)
                         .fontWeight(.semibold)
                         .foregroundStyle(rowColor)
@@ -82,6 +82,10 @@ struct CheckInRowView: View {
                         .padding(.vertical, 3)
                         .background(rowColor.opacity(0.12))
                         .clipShape(Capsule())
+
+                    Label(checkIn.isVisited ? "Đã đi" : "Muốn đi", systemImage: checkIn.isVisited ? "checkmark.circle.fill" : "bookmark.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
 
                     if !checkIn.note.isEmpty {
                         Text(checkIn.note)
@@ -96,16 +100,16 @@ struct CheckInRowView: View {
     }
 
     var rowColor: Color {
-        checkIn.isVisited ? categoryColor : .orange
+        checkIn.isVisited ? placeTypeColor : .orange
     }
 
-    var categoryColor: Color {
-        switch checkIn.category {
-        case .extendedFamily: return .purple
-        case .family:         return .green
-        case .couple:         return .pink
-        case .solo:           return .blue
-        case .other:          return .gray
+    var placeTypeColor: Color {
+        switch checkIn.placeType {
+        case .travel: return .blue
+        case .food: return .red
+        case .checkIn: return .purple
+        case .coffee: return .brown
+        case .other: return .gray
         }
     }
 }

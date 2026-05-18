@@ -2,6 +2,13 @@ import Foundation
 import CoreLocation
 import Observation
 
+private extension Array where Element == String {
+    func removingDuplicates() -> [String] {
+        var seen = Set<String>()
+        return filter { seen.insert($0).inserted }
+    }
+}
+
 @Observable
 class LocationService: NSObject, CLLocationManagerDelegate {
     var userLocation: CLLocationCoordinate2D? = nil
@@ -31,11 +38,11 @@ class LocationService: NSObject, CLLocationManagerDelegate {
     }
 
     // MARK: - Reverse Geocode
-    // Tọa độ → tên địa danh (city, country)
+    // Tọa độ → tên địa danh (city, country, formattedAddress)
     func reverseGeocode(
         latitude: Double,
         longitude: Double
-    ) async -> (city: String, country: String) {
+    ) async -> (city: String, country: String, formattedAddress: String) {
         let location = CLLocation(
             latitude: latitude,
             longitude: longitude
@@ -45,16 +52,30 @@ class LocationService: NSObject, CLLocationManagerDelegate {
             let placemarks = try await geocoder.reverseGeocodeLocation(location)
             if let placemark = placemarks.first {
                 let city = placemark.locality
+                    ?? placemark.subAdministrativeArea
                     ?? placemark.administrativeArea
                     ?? ""
                 let country = placemark.country ?? ""
-                return (city, country)
+                let formattedAddress = [
+                    placemark.name,
+                    placemark.thoroughfare,
+                    placemark.subLocality,
+                    placemark.locality,
+                    placemark.administrativeArea,
+                    placemark.postalCode,
+                    placemark.country
+                ]
+                .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+                .removingDuplicates()
+                .joined(separator: ", ")
+                return (city, country, formattedAddress)
             }
         } catch {
             print("Geocoding error: \(error)")
         }
 
-        return ("", "")
+        return ("", "", "")
     }
 
     // MARK: - CLLocationManagerDelegate

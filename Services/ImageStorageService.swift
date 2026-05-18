@@ -33,6 +33,32 @@ class ImageStorageService {
         return UIImage(contentsOfFile: url.path)
     }
 
+    func saveIcon(_ image: UIImage) -> String? {
+        guard let data = image.jpegData(compressionQuality: 0.85) else {
+            return nil
+        }
+
+        let filename = UUID().uuidString + ".jpg"
+        let url = iconFileURL(for: filename)
+
+        do {
+            try FileManager.default.createDirectory(
+                at: iconDirectoryURL,
+                withIntermediateDirectories: true
+            )
+            try data.write(to: url, options: .atomic)
+            return filename
+        } catch {
+            print("ImageStorageService save icon error: \(error)")
+            return nil
+        }
+    }
+
+    func loadIcon(filename: String) -> UIImage? {
+        let url = iconFileURL(for: filename)
+        return UIImage(contentsOfFile: url.path)
+    }
+
     // Xoá ảnh khỏi disk
     func delete(filename: String) {
         let url = fileURL(for: filename)
@@ -48,5 +74,15 @@ class ImageStorageService {
         FileManager.default
             .urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent(filename)
+    }
+
+    private var iconDirectoryURL: URL {
+        FileManager.default
+            .urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("CategoryIcons", isDirectory: true)
+    }
+
+    private func iconFileURL(for filename: String) -> URL {
+        iconDirectoryURL.appendingPathComponent(filename)
     }
 }

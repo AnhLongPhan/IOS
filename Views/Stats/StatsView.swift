@@ -2,6 +2,7 @@ import SwiftUI
 
 struct StatsView: View {
     @Environment(CheckInViewModel.self) var viewModel
+    @Environment(UserProfileStore.self) private var userProfileStore
 
     var body: some View {
         NavigationStack {
@@ -16,50 +17,65 @@ struct StatsView: View {
                         ],
                         spacing: 12
                     ) {
-                        StatCard(
-                            icon: "mappin.circle.fill",
-                            label: "Địa điểm",
-                            value: "\(viewModel.checkIns.count)",
-                            color: .blue
-                        )
-                        StatCard(
-                            icon: "globe.asia.australia.fill",
-                            label: "Quốc gia",
-                            value: "\(viewModel.totalCountries)",
-                            color: .green
-                        )
-                        StatCard(
-                            icon: "building.2.fill",
-                            label: "Thành phố",
-                            value: "\(viewModel.totalCities)",
-                            color: .orange
-                        )
-                        StatCard(
-                            icon: "checkmark.circle.fill",
-                            label: "Đã đến",
-                            value: "\(viewModel.checkIns.filter { $0.isVisited }.count)",
-                            color: .teal
-                        )
+                        NavigationLink(value: StatsListDestination.allPlaces) {
+                            StatCard(
+                                icon: "mappin.circle.fill",
+                                label: "Địa điểm",
+                                value: "\(viewModel.checkIns.count)",
+                                color: .blue
+                            )
+                        }
+
+                        NavigationLink(value: StatsListDestination.countries) {
+                            StatCard(
+                                icon: "globe.asia.australia.fill",
+                                label: "Quốc gia",
+                                value: "\(viewModel.totalCountries)",
+                                color: .green
+                            )
+                        }
+
+                        NavigationLink(value: StatsListDestination.cities) {
+                            StatCard(
+                                icon: "building.2.fill",
+                                label: "Thành phố",
+                                value: "\(viewModel.totalCities)",
+                                color: .orange
+                            )
+                        }
+
+                        NavigationLink(value: StatsListDestination.visited) {
+                            StatCard(
+                                icon: "checkmark.circle.fill",
+                                label: "Đã đến",
+                                value: "\(viewModel.totalVisited)",
+                                color: .teal
+                            )
+                        }
                     }
+                    .buttonStyle(.plain)
                     .padding(.horizontal)
 
-                    // MARK: - Phân loại theo category
+                    // MARK: - Phân loại theo loại địa điểm
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Theo loại địa điểm")
+                        Text("Theo phân loại")
                             .font(.headline)
                             .padding(.horizontal)
 
-                        ForEach(PlaceCategory.allCases, id: \.self) { category in
+                        ForEach(userProfileStore.enabledPlaceTypes, id: \.self) { placeType in
                             let count = viewModel.checkIns.filter {
-                                $0.category == category
+                                $0.placeType == placeType
                             }.count
 
                             if count > 0 {
-                                CategoryStatRow(
-                                    category: category,
-                                    count: count,
-                                    total: viewModel.checkIns.count
-                                )
+                                NavigationLink(value: StatsListDestination.placeType(placeType)) {
+                                    PlaceTypeStatRow(
+                                        placeType: placeType,
+                                        count: count,
+                                        total: viewModel.checkIns.count
+                                    )
+                                }
+                                .buttonStyle(.plain)
                             }
                         }
                     }
@@ -77,27 +93,34 @@ struct StatsView: View {
                                 .font(.headline)
                                 .padding(.horizontal)
 
-                            HStack(spacing: 12) {
-                                Image(systemName: latest.category.icon)
-                                    .font(.title2)
-                                    .foregroundStyle(.blue)
-                                    .frame(width: 44, height: 44)
-                                    .background(Color.blue.opacity(0.1))
-                                    .clipShape(Circle())
+                            NavigationLink(value: latest) {
+                                HStack(spacing: 12) {
+                                    Image(systemName: latest.placeType.icon)
+                                        .font(.title2)
+                                        .foregroundStyle(placeTypeColor(latest.placeType))
+                                        .frame(width: 44, height: 44)
+                                        .background(placeTypeColor(latest.placeType).opacity(0.1))
+                                        .clipShape(Circle())
 
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(latest.name)
-                                        .font(.headline)
-                                    Text(latest.locationDisplay)
-                                        .font(.subheadline)
-                                        .foregroundStyle(.secondary)
-                                    Text(latest.formattedDate)
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(latest.name)
+                                            .font(.headline)
+                                            .foregroundStyle(.primary)
+                                        Text(latest.locationDisplay)
+                                            .font(.subheadline)
+                                            .foregroundStyle(.secondary)
+                                        Text(latest.formattedDate)
+                                            .font(.caption)
+                                            .foregroundStyle(.tertiary)
+                                    }
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
                                         .font(.caption)
                                         .foregroundStyle(.tertiary)
                                 }
-                                Spacer()
+                                .padding(.horizontal)
                             }
-                            .padding(.horizontal)
+                            .buttonStyle(.plain)
                         }
                         .padding(.vertical, 8)
                         .background(Color(.systemBackground))
@@ -125,7 +148,81 @@ struct StatsView: View {
             }
             .background(Color(.systemGroupedBackground))
             .navigationTitle("Stats")
+            .navigationDestination(for: StatsListDestination.self) { destination in
+                StatsCheckInListView(
+                    title: destination.title,
+                    checkIns: checkIns(for: destination)
+                )
+            }
+            .navigationDestination(for: CheckIn.self) { checkIn in
+                DetailView(checkIn: checkIn)
+                    .environment(viewModel)
+            }
         }
+    }
+
+    private func checkIns(for destination: StatsListDestination) -> [CheckIn] {
+        let items: [CheckIn]
+        switch destination {
+        case .allPlaces:
+            items = viewModel.checkIns
+        case .countries:
+            items = viewModel.checkIns.filter { !$0.country.isEmpty }
+        case .cities:
+            items = viewModel.checkIns.filter { !$0.city.isEmpty }
+        case .visited:
+            items = viewModel.checkIns.filter(\.isVisited)
+        case .placeType(let placeType):
+            items = viewModel.checkIns.filter { $0.placeType == placeType }
+        }
+
+        return items.sorted { $0.visitedAt > $1.visitedAt }
+    }
+}
+
+enum StatsListDestination: Hashable {
+    case allPlaces
+    case countries
+    case cities
+    case visited
+    case placeType(PlaceType)
+
+    var title: String {
+        switch self {
+        case .allPlaces: return "Tất cả địa điểm"
+        case .countries: return "Địa điểm có quốc gia"
+        case .cities: return "Địa điểm có thành phố"
+        case .visited: return "Đã đến"
+        case .placeType(let placeType): return placeType.rawValue
+        }
+    }
+}
+
+struct StatsCheckInListView: View {
+    let title: String
+    let checkIns: [CheckIn]
+
+    var body: some View {
+        Group {
+            if checkIns.isEmpty {
+                ContentUnavailableView(
+                    "Không có địa điểm",
+                    systemImage: "mappin.slash",
+                    description: Text("Chưa có dữ liệu phù hợp với thống kê này.")
+                )
+            } else {
+                List {
+                    ForEach(Array(checkIns.enumerated()), id: \.element.id) { index, checkIn in
+                        NavigationLink(value: checkIn) {
+                            CheckInRowView(checkIn: checkIn, index: index + 1)
+                        }
+                    }
+                }
+                .listStyle(.plain)
+            }
+        }
+        .navigationTitle(title)
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
@@ -146,9 +243,14 @@ struct StatCard: View {
                 .font(.system(size: 32, weight: .bold))
                 .foregroundStyle(color)
 
-            Text(label)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            HStack(spacing: 4) {
+                Text(label)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Image(systemName: "chevron.right")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 20)
@@ -157,9 +259,9 @@ struct StatCard: View {
     }
 }
 
-// MARK: - CategoryStatRow
-struct CategoryStatRow: View {
-    let category: PlaceCategory
+// MARK: - PlaceTypeStatRow
+struct PlaceTypeStatRow: View {
+    let placeType: PlaceType
     let count: Int
     let total: Int
 
@@ -167,36 +269,30 @@ struct CategoryStatRow: View {
         total > 0 ? Double(count) / Double(total) : 0
     }
 
-    var categoryColor: Color {
-        switch category {
-        case .extendedFamily: return .purple
-        case .family:         return .green
-        case .couple:         return .pink
-        case .solo:           return .blue
-        case .other:          return .gray
-        }
+    var rowColor: Color {
+        placeTypeColor(placeType)
     }
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: category.icon)
+            Image(systemName: placeType.icon)
                 .frame(width: 24)
-                .foregroundStyle(categoryColor)
+                .foregroundStyle(rowColor)
 
-            Text(category.rawValue)
+            Text(placeType.rawValue)
                 .font(.subheadline)
+                .foregroundStyle(.primary)
 
             Spacer()
 
-            // Progress bar
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(categoryColor.opacity(0.15))
+                        .fill(rowColor.opacity(0.15))
                         .frame(height: 8)
 
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(categoryColor)
+                        .fill(rowColor)
                         .frame(
                             width: geo.size.width * percentage,
                             height: 8
@@ -208,14 +304,30 @@ struct CategoryStatRow: View {
             Text("\(count)")
                 .font(.subheadline)
                 .fontWeight(.semibold)
+                .foregroundStyle(.primary)
                 .frame(width: 24, alignment: .trailing)
+
+            Image(systemName: "chevron.right")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
         }
         .padding(.horizontal)
         .padding(.vertical, 6)
     }
 }
 
+func placeTypeColor(_ placeType: PlaceType) -> Color {
+    switch placeType {
+    case .travel: return .blue
+    case .food: return .red
+    case .checkIn: return .purple
+    case .coffee: return .brown
+    case .other: return .gray
+    }
+}
+
 #Preview {
     StatsView()
         .environment(CheckInViewModel())
+        .environment(UserProfileStore())
 }

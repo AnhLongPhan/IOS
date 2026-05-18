@@ -8,31 +8,30 @@
 import SwiftUI
 
 struct CategoryFilterView: View {
-    @Binding var selectedCategory: PlaceCategory?
+    @Environment(UserProfileStore.self) private var userProfileStore
+    @Binding var selectedPlaceType: PlaceType?
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                // Nút "Tất cả"
                 FilterChip(
                     label: "Tất cả",
                     icon: "mappin.fill",
-                    isSelected: selectedCategory == nil
+                    isSelected: selectedPlaceType == nil
                 ) {
-                    selectedCategory = nil
+                    selectedPlaceType = nil
                 }
 
-                // Nút từng category
-                ForEach(PlaceCategory.allCases, id: \.self) { category in
+                ForEach(userProfileStore.enabledPlaceTypes, id: \.self) { placeType in
                     FilterChip(
-                        label: category.rawValue,
-                        icon: category.icon,
-                        isSelected: selectedCategory == category
+                        label: placeType.rawValue,
+                        icon: placeType.icon,
+                        isSelected: selectedPlaceType == placeType
                     ) {
-                        if selectedCategory == category {
-                            selectedCategory = nil // deselect
+                        if selectedPlaceType == placeType {
+                            selectedPlaceType = nil
                         } else {
-                            selectedCategory = category
+                            selectedPlaceType = placeType
                         }
                     }
                 }
@@ -69,5 +68,6 @@ struct FilterChip: View {
 }
 
 #Preview {
-    CategoryFilterView(selectedCategory: .constant(nil))
+    CategoryFilterView(selectedPlaceType: .constant(nil))
+        .environment(UserProfileStore())
 }

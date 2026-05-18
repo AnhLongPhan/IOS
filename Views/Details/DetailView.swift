@@ -41,14 +41,14 @@ struct DetailView: View {
                             .fontWeight(.bold)
 
                         HStack {
-                            Image(systemName: currentCheckIn.category.icon)
-                            Text(currentCheckIn.category.rawValue)
+                            Image(systemName: currentCheckIn.placeType.icon)
+                            Text(currentCheckIn.placeType.rawValue)
                         }
                         .font(.subheadline)
-                        .foregroundStyle(categoryColor)
+                        .foregroundStyle(placeTypeColor)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
-                        .background(categoryColor.opacity(0.12))
+                        .background(placeTypeColor.opacity(0.12))
                         .clipShape(Capsule())
                     }
 
@@ -135,13 +135,13 @@ struct DetailView: View {
             } else {
                 // Placeholder gradient
                 LinearGradient(
-                    colors: [categoryColor.opacity(0.7), categoryColor.opacity(0.3)],
+                    colors: [placeTypeColor.opacity(0.7), placeTypeColor.opacity(0.3)],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
                 .frame(height: 260)
 
-                Image(systemName: currentCheckIn.category.icon)
+                Image(systemName: currentCheckIn.placeType.icon)
                     .font(.system(size: 64))
                     .foregroundStyle(.white.opacity(0.8))
             }
@@ -163,12 +163,32 @@ struct DetailView: View {
                 value: currentCheckIn.locationDisplay
             )
 
+            if !currentCheckIn.formattedAddress.isEmpty {
+                InfoRow(
+                    icon: "signpost.right",
+                    label: "Địa chỉ",
+                    value: currentCheckIn.formattedAddress
+                )
+            }
+
             InfoRow(
                 icon: "location.circle",
                 label: "Tọa độ",
                 value: String(format: "%.4f, %.4f",
                     currentCheckIn.latitude,
                     currentCheckIn.longitude)
+            )
+
+            InfoRow(
+                icon: currentCheckIn.placeType.icon,
+                label: "Phân loại",
+                value: currentCheckIn.placeType.rawValue
+            )
+
+            InfoRow(
+                icon: currentCheckIn.category.icon,
+                label: "Tham gia cùng",
+                value: currentCheckIn.category.rawValue
             )
 
             InfoRow(
@@ -232,6 +252,16 @@ struct DetailView: View {
     }
 
     // MARK: - Helpers
+    var placeTypeColor: Color {
+        switch currentCheckIn.placeType {
+        case .travel: return .blue
+        case .food: return .red
+        case .checkIn: return .purple
+        case .coffee: return .brown
+        case .other: return .gray
+        }
+    }
+
     var categoryColor: Color {
         switch currentCheckIn.category {
         case .extendedFamily: return .purple

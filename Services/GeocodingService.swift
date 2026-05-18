@@ -9,7 +9,13 @@ import Foundation
 
 // Model decode từ Nominatim API
 struct NominatimResponse: Codable {
+    let displayName: String?
     let address: NominatimAddress?
+
+    enum CodingKeys: String, CodingKey {
+        case displayName = "display_name"
+        case address
+    }
 
     struct NominatimAddress: Codable {
         let city: String?
@@ -33,14 +39,14 @@ class GeocodingService {
     func reverseGeocode(
         latitude: Double,
         longitude: Double
-    ) async -> (city: String, country: String) {
+    ) async -> (city: String, country: String, formattedAddress: String) {
         let urlString = "https://nominatim.openstreetmap.org/reverse"
             + "?lat=\(latitude)"
             + "&lon=\(longitude)"
             + "&format=json"
 
         guard let url = URL(string: urlString) else {
-            return ("", "")
+            return ("", "", "")
         }
 
         // Nominatim yêu cầu User-Agent header
@@ -58,7 +64,7 @@ class GeocodingService {
             // Kiểm tra HTTP status
             guard let httpResponse = response as? HTTPURLResponse,
                   httpResponse.statusCode == 200 else {
-                return ("", "")
+                return ("", "", "")
             }
 
             let result = try JSONDecoder().decode(
@@ -66,13 +72,16 @@ class GeocodingService {
                 from: data
             )
 
-            let city    = result.address?.resolvedCity ?? ""
+            let city = result.address?.resolvedCity ?? ""
             let country = result.address?.country ?? ""
-            return (city, country)
+            let formattedAddress = result.displayName ?? [city, country]
+                .filter { !$0.isEmpty }
+                .joined(separator: ", ")
+            return (city, country, formattedAddress)
 
         } catch {
             print("Nominatim error: \(error)")
-            return ("", "")
+            return ("", "", "")
         }
     }
 }

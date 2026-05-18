@@ -23,7 +23,7 @@ struct PlacesView: View {
                     .padding(.top, 8)
 
                     CategoryFilterView(
-                        selectedCategory: Bindable(viewModel).selectedCategory
+                        selectedPlaceType: Bindable(viewModel).selectedPlaceType
                     )
                 }
                 .background(Color(.systemBackground))

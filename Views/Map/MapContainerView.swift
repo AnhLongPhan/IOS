@@ -5,6 +5,7 @@ import UIKit
 struct MapContainerView: View {
     @Environment(CheckInViewModel.self) var viewModel
     @Environment(LocationService.self) var locationService
+    @Environment(UserProfileStore.self) private var userProfileStore
     @AppStorage("defaultMapVN") var defaultMapVN: Bool = true
 
     @State private var cameraPosition: MapCameraPosition = .region(
@@ -26,6 +27,9 @@ struct MapContainerView: View {
     @State private var selectedClusterID: CheckInCluster.ID? = nil
     @State private var navigationPath: [CheckIn] = []
     @State private var showRouteLine = false
+    @State private var visiblePlaceTypeFilterLabel: String? = nil
+    @State private var hidePlaceTypeFilterLabelTask: Task<Void, Never>? = nil
+    @State private var showNewUserConfirmation = false
     @State private var visibleRegion = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 14.0583, longitude: 108.2772),
         span: MKCoordinateSpan(latitudeDelta: 12, longitudeDelta: 12)
@@ -33,7 +37,10 @@ struct MapContainerView: View {
 
     private var routeCheckIns: [CheckIn] {
         viewModel.checkIns
-            .filter(\.isVisited)
+            .filter { checkIn in
+                checkIn.isVisited &&
+                (viewModel.selectedPlaceType == nil || checkIn.placeType == viewModel.selectedPlaceType)
+            }
             .sorted { $0.visitedAt < $1.visitedAt }
     }
 
@@ -176,6 +183,20 @@ struct MapContainerView: View {
                 }
             }
 
+            VStack {
+                MapPlaceTypeFilterRail(
+                    selectedPlaceType: viewModel.selectedPlaceType,
+                    visibleLabel: visiblePlaceTypeFilterLabel,
+                    placeTypes: userProfileStore.enabledPlaceTypes,
+                    onSelect: updateMapPlaceTypeFilter
+                )
+                .padding(.top, 12)
+                .padding(.leading, 12)
+
+                Spacer()
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+
             // MARK: - Nút điều khiển
             VStack(spacing: 12) {
                 // Nút + thêm checkin
@@ -192,6 +213,18 @@ struct MapContainerView: View {
                         .background(.blue)
                         .clipShape(Circle())
                         .shadow(radius: 4)
+                }
+
+                Button {
+                    showNewUserConfirmation = true
+                } label: {
+                    Text(userProfileStore.displayInitial)
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundStyle(.blue)
+                        .frame(width: 44, height: 44)
+                        .background(.white)
+                        .clipShape(Circle())
+                        .shadow(radius: 3)
                 }
 
                 // Nút bật/tắt đường đi
@@ -282,6 +315,18 @@ struct MapContainerView: View {
                 DetailView(checkIn: checkIn)
                     .environment(viewModel)
             }
+            .confirmationDialog(
+                "Tạo user mới?",
+                isPresented: $showNewUserConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Thiết lập user mới") {
+                    userProfileStore.startNewUserSetup()
+                }
+                Button("Huỷ", role: .cancel) {}
+            } message: {
+                Text("Bạn sẽ quay lại màn hình thiết lập ban đầu. Dữ liệu check-in hiện có vẫn được giữ nguyên.")
+            }
         }
     }
 
@@ -345,6 +390,29 @@ struct MapContainerView: View {
         withAnimation(.spring(duration: 0.25)) {
             selectedAnnotationID = nil
             selectedClusterID = nil
+        }
+    }
+
+    private func updateMapPlaceTypeFilter(_ placeType: PlaceType?) {
+        viewModel.selectedPlaceType = viewModel.selectedPlaceType == placeType ? nil : placeType
+        let label = viewModel.selectedPlaceType?.rawValue ?? "Tất cả"
+
+        withAnimation(.easeInOut(duration: 0.2)) {
+            visiblePlaceTypeFilterLabel = label
+            selectedAnnotationID = nil
+            selectedClusterID = nil
+        }
+
+        hidePlaceTypeFilterLabelTask?.cancel()
+        hidePlaceTypeFilterLabelTask = Task {
+            try? await Task.sleep(for: .seconds(1.2))
+            guard !Task.isCancelled else { return }
+
+            await MainActor.run {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    visiblePlaceTypeFilterLabel = nil
+                }
+            }
         }
     }
 
@@ -450,6 +518,77 @@ private struct ClusterGridKey: Hashable {
     let longitude: Int
 }
 
+struct MapPlaceTypeFilterRail: View {
+    let selectedPlaceType: PlaceType?
+    let visibleLabel: String?
+    let placeTypes: [PlaceType]
+    let onSelect: (PlaceType?) -> Void
+
+    private var visiblePlaceTypes: [PlaceType] {
+        if let selectedPlaceType {
+            return [selectedPlaceType]
+        }
+
+        return placeTypes
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            filterButton(
+                label: "Tất cả",
+                icon: "mappin.fill",
+                isSelected: selectedPlaceType == nil
+            ) {
+                onSelect(nil)
+            }
+
+            ForEach(visiblePlaceTypes, id: \.self) { placeType in
+                filterButton(
+                    label: placeType.rawValue,
+                    icon: placeType.icon,
+                    isSelected: selectedPlaceType == placeType
+                ) {
+                    onSelect(placeType)
+                }
+            }
+        }
+    }
+
+    private func filterButton(
+        label: String,
+        icon: String,
+        isSelected: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        HStack(spacing: 8) {
+            Button(action: action) {
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(isSelected ? .white : .blue)
+                    .frame(width: 38, height: 38)
+                    .background(isSelected ? .blue : Color(.systemBackground))
+                    .clipShape(Circle())
+                    .shadow(radius: 3)
+            }
+            .buttonStyle(.plain)
+
+            if visibleLabel == label {
+                Text(label)
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.primary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background(.thinMaterial)
+                    .clipShape(Capsule())
+                    .transition(.move(edge: .leading).combined(with: .opacity))
+            }
+        }
+        .frame(height: 38, alignment: .leading)
+        .fixedSize(horizontal: true, vertical: false)
+    }
+}
+
 struct ClusterAnnotationView: View {
     let count: Int
     let isSelected: Bool
@@ -494,7 +633,7 @@ struct CheckInPreviewSheet: View {
                     .font(.headline)
                     .lineLimit(1)
 
-                Label(checkIn.locationDisplay, systemImage: "mappin.circle")
+                Label(checkIn.addressDisplay, systemImage: "mappin.circle")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -503,7 +642,7 @@ struct CheckInPreviewSheet: View {
                     Label(checkIn.formattedDate, systemImage: "calendar")
                     Label(checkIn.isVisited ? "Đã đi" : "Muốn đi", systemImage: checkIn.isVisited ? "checkmark.circle.fill" : "bookmark.fill")
                         .foregroundStyle(statusColor)
-                    Label(checkIn.category.rawValue, systemImage: checkIn.category.icon)
+                    Label(checkIn.placeType.rawValue, systemImage: checkIn.placeType.icon)
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -559,7 +698,7 @@ struct CheckInPreviewSheet: View {
                 .fill(statusColor.opacity(0.16))
                 .frame(width: 68, height: 68)
                 .overlay {
-                    Image(systemName: checkIn.isVisited ? checkIn.category.icon : "bookmark.fill")
+                    Image(systemName: checkIn.isVisited ? checkIn.placeType.icon : "bookmark.fill")
                         .font(.title2)
                         .foregroundStyle(statusColor)
                 }
@@ -567,16 +706,16 @@ struct CheckInPreviewSheet: View {
     }
 
     private var statusColor: Color {
-        checkIn.isVisited ? categoryColor : .orange
+        checkIn.isVisited ? placeTypeColor : .orange
     }
 
-    private var categoryColor: Color {
-        switch checkIn.category {
-        case .extendedFamily: return .purple
-        case .family:         return .green
-        case .couple:         return .pink
-        case .solo:           return .blue
-        case .other:          return .gray
+    private var placeTypeColor: Color {
+        switch checkIn.placeType {
+        case .travel: return .blue
+        case .food: return .red
+        case .checkIn: return .purple
+        case .coffee: return .brown
+        case .other: return .gray
         }
     }
 }
@@ -771,4 +910,5 @@ struct RouteNumberAnnotationView: View {
     MapContainerView()
         .environment(CheckInViewModel())
         .environment(LocationService())
+        .environment(UserProfileStore())
 }
