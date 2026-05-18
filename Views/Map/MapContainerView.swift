@@ -29,7 +29,6 @@ struct MapContainerView: View {
     @State private var showRouteLine = false
     @State private var visiblePlaceTypeFilterLabel: String? = nil
     @State private var hidePlaceTypeFilterLabelTask: Task<Void, Never>? = nil
-    @State private var showNewUserConfirmation = false
     @State private var visibleRegion = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 14.0583, longitude: 108.2772),
         span: MKCoordinateSpan(latitudeDelta: 12, longitudeDelta: 12)
@@ -215,18 +214,6 @@ struct MapContainerView: View {
                         .shadow(radius: 4)
                 }
 
-                Button {
-                    showNewUserConfirmation = true
-                } label: {
-                    Text(userProfileStore.displayInitial)
-                        .font(.system(size: 17, weight: .bold))
-                        .foregroundStyle(.blue)
-                        .frame(width: 44, height: 44)
-                        .background(.white)
-                        .clipShape(Circle())
-                        .shadow(radius: 3)
-                }
-
                 // Nút bật/tắt đường đi
                 Button {
                     withAnimation(.easeInOut(duration: 0.2)) {
@@ -314,18 +301,6 @@ struct MapContainerView: View {
             .navigationDestination(for: CheckIn.self) { checkIn in
                 DetailView(checkIn: checkIn)
                     .environment(viewModel)
-            }
-            .confirmationDialog(
-                "Tạo user mới?",
-                isPresented: $showNewUserConfirmation,
-                titleVisibility: .visible
-            ) {
-                Button("Thiết lập user mới") {
-                    userProfileStore.startNewUserSetup()
-                }
-                Button("Huỷ", role: .cancel) {}
-            } message: {
-                Text("Bạn sẽ quay lại màn hình thiết lập ban đầu. Dữ liệu check-in hiện có vẫn được giữ nguyên.")
             }
         }
     }

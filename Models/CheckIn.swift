@@ -7,6 +7,7 @@
 import Foundation
 struct CheckIn: Identifiable, Codable , Hashable  {
     var id: UUID = .init()
+    var ownerUserID: UUID? = nil
     var name: String
     var note: String = ""
     var latitude: Double
@@ -24,6 +25,7 @@ struct CheckIn: Identifiable, Codable , Hashable  {
 
     init(
         id: UUID = .init(),
+        ownerUserID: UUID? = nil,
         name: String,
         note: String = "",
         latitude: Double,
@@ -40,6 +42,7 @@ struct CheckIn: Identifiable, Codable , Hashable  {
         isVisited: Bool = true
     ) {
         self.id = id
+        self.ownerUserID = ownerUserID
         self.name = name
         self.note = note
         self.latitude = latitude
@@ -84,6 +87,7 @@ struct CheckIn: Identifiable, Codable , Hashable  {
 extension CheckIn {
     enum CodingKeys: String, CodingKey {
         case id
+        case ownerUserID
         case name
         case note
         case latitude
@@ -104,6 +108,7 @@ extension CheckIn {
         let container = try decoder.container(keyedBy: CodingKeys.self)
 
         id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? .init()
+        ownerUserID = try container.decodeIfPresent(UUID.self, forKey: .ownerUserID)
         name = try container.decode(String.self, forKey: .name)
         note = try container.decodeIfPresent(String.self, forKey: .note) ?? ""
         latitude = try container.decode(Double.self, forKey: .latitude)

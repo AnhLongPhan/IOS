@@ -2,9 +2,10 @@ import SwiftUI
 
 struct PlacesView: View {
     @Environment(CheckInViewModel.self) var viewModel
+    @Environment(UserProfileStore.self) private var userProfileStore
 
     var sortedCheckIns: [CheckIn] {
-        viewModel.filteredCheckIns
+        viewModel.filteredCheckIns.filter(isVisibleCategory)
     }
 
     var body: some View {
@@ -23,7 +24,8 @@ struct PlacesView: View {
                     .padding(.top, 8)
 
                     CategoryFilterView(
-                        selectedPlaceType: Bindable(viewModel).selectedPlaceType
+                        selectedPlaceType: Bindable(viewModel).selectedPlaceType,
+                        selectedCustomPlaceCategoryID: Bindable(viewModel).selectedCustomPlaceCategoryID
                     )
                 }
                 .background(Color(.systemBackground))
@@ -109,9 +111,18 @@ struct PlacesView: View {
         case .wishlist: return "Tắt Đã tham quan khi thêm địa điểm để lưu vào wishlist"
         }
     }
+
+    private func isVisibleCategory(_ checkIn: CheckIn) -> Bool {
+        if let customPlaceCategoryID = checkIn.customPlaceCategoryID {
+            return userProfileStore.customCategory(id: customPlaceCategoryID) != nil
+        }
+
+        return userProfileStore.enabledPlaceTypes.contains(checkIn.placeType)
+    }
 }
 
 #Preview {
     PlacesView()
         .environment(CheckInViewModel())
+        .environment(UserProfileStore())
 }

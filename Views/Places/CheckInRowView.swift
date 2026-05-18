@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct CheckInRowView: View {
+    @Environment(UserProfileStore.self) private var userProfileStore
+
     let checkIn: CheckIn
     var index: Int? = nil
     private let imageService = ImageStorageService()
@@ -37,7 +39,7 @@ struct CheckInRowView: View {
                         .frame(width: 52, height: 52)
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                 } else {
-                    Image(systemName: checkIn.isVisited ? checkIn.placeType.icon : "bookmark.fill")
+                    Image(systemName: checkIn.isVisited ? categoryIcon : "bookmark.fill")
                         .font(.system(size: 20))
                         .foregroundStyle(rowColor)
                 }
@@ -74,7 +76,7 @@ struct CheckInRowView: View {
                     .lineLimit(1)
 
                 HStack(spacing: 6) {
-                    Label(checkIn.placeType.rawValue, systemImage: checkIn.placeType.icon)
+                    Label(categoryName, systemImage: categoryIcon)
                         .font(.caption2)
                         .fontWeight(.semibold)
                         .foregroundStyle(rowColor)
@@ -112,6 +114,14 @@ struct CheckInRowView: View {
         case .other: return .gray
         }
     }
+
+    private var categoryName: String {
+        userProfileStore.categoryName(for: checkIn)
+    }
+
+    private var categoryIcon: String {
+        userProfileStore.categoryIcon(for: checkIn)
+    }
 }
 
 #Preview {
@@ -119,4 +129,5 @@ struct CheckInRowView: View {
         CheckInRowView(checkIn: CheckIn.mockData[0])
         CheckInRowView(checkIn: CheckIn.mockData[1])
     }
+    .environment(UserProfileStore())
 }

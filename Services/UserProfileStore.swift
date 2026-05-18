@@ -53,6 +53,7 @@ enum DisplayMode: String, Codable, CaseIterable, Identifiable {
 }
 
 struct UserProfile: Codable, Hashable {
+    var id: UUID
     var displayName: String
     var enabledPlaceTypeRawValues: [String]
     var customCategories: [CustomPlaceCategory]
@@ -60,12 +61,14 @@ struct UserProfile: Codable, Hashable {
     var completedAt: Date?
 
     init(
+        id: UUID = UUID(),
         displayName: String,
         enabledPlaceTypeRawValues: [String],
         customCategories: [CustomPlaceCategory],
         displayMode: DisplayMode,
         completedAt: Date?
     ) {
+        self.id = id
         self.displayName = displayName
         self.enabledPlaceTypeRawValues = enabledPlaceTypeRawValues
         self.customCategories = customCategories
@@ -74,6 +77,7 @@ struct UserProfile: Codable, Hashable {
     }
 
     static let empty = UserProfile(
+        id: UUID(),
         displayName: "",
         enabledPlaceTypeRawValues: PlaceType.allCases.map(\.rawValue),
         customCategories: [],
@@ -82,6 +86,7 @@ struct UserProfile: Codable, Hashable {
     )
 
     enum CodingKeys: String, CodingKey {
+        case id
         case displayName
         case enabledPlaceTypeRawValues
         case customCategories
@@ -91,6 +96,7 @@ struct UserProfile: Codable, Hashable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
         displayName = try container.decodeIfPresent(String.self, forKey: .displayName) ?? ""
         enabledPlaceTypeRawValues = try container.decodeIfPresent([String].self, forKey: .enabledPlaceTypeRawValues) ?? PlaceType.allCases.map(\.rawValue)
         customCategories = try container.decodeIfPresent([CustomPlaceCategory].self, forKey: .customCategories) ?? []
@@ -99,27 +105,72 @@ struct UserProfile: Codable, Hashable {
     }
 }
 
+struct UserProfileState: Codable {
+    var profiles: [UserProfile]
+    var activeUserID: UUID?
+}
+
 @Observable
 final class UserProfileStore {
     private let storageKey = "travelPin.userProfile"
 
-    var profile: UserProfile
+    var profiles: [UserProfile]
+    var activeUserID: UUID?
+    var isCreatingNewUser = false
 
     init() {
         if let data = UserDefaults.standard.data(forKey: storageKey),
-           let decoded = try? JSONDecoder().decode(UserProfile.self, from: data) {
-            profile = decoded
+           let decoded = try? JSONDecoder().decode(UserProfileState.self, from: data) {
+            profiles = decoded.profiles
+            activeUserID = decoded.activeUserID
+        } else if let data = UserDefaults.standard.data(forKey: storageKey),
+                  let legacyProfile = try? JSONDecoder().decode(UserProfile.self, from: data),
+                  legacyProfile.completedAt != nil {
+            profiles = [legacyProfile]
+            activeUserID = legacyProfile.id
+            save()
         } else {
-            profile = .empty
+            profiles = []
+            activeUserID = nil
         }
     }
 
     var hasCompletedOnboarding: Bool {
-        profile.completedAt != nil && !profile.displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        activeProfile != nil
+    }
+
+    var shouldShowOnboarding: Bool {
+        profiles.isEmpty || isCreatingNewUser
+    }
+
+    var shouldShowUserSelection: Bool {
+        !profiles.isEmpty && activeProfile == nil && !isCreatingNewUser
+    }
+
+    var activeProfile: UserProfile? {
+        guard let activeUserID else { return nil }
+        return profiles.first { $0.id == activeUserID }
+    }
+
+    var profile: UserProfile {
+        get { activeProfile ?? .empty }
+        set {
+            guard let index = profiles.firstIndex(where: { $0.id == newValue.id }) else { return }
+            profiles[index] = newValue
+            save()
+        }
     }
 
     var displayName: String {
         profile.displayName
+    }
+
+    var displayNameBindingValue: String {
+        get { profile.displayName }
+        set {
+            updateActiveProfile { $0.displayName = newValue }
+            save()
+        }
     }
 
     var displayInitial: String {
@@ -136,9 +187,12 @@ final class UserProfileStore {
     var displayMode: DisplayMode {
         get { profile.displayMode }
         set {
-            profile.displayMode = newValue
-            save()
+            updateActiveProfile { $0.displayMode = newValue }
         }
+    }
+
+    func updateDisplayName(_ displayName: String) {
+        updateActiveProfile { $0.displayName = displayName.trimmingCharacters(in: .whitespacesAndNewlines) }
     }
 
     func completeOnboarding(
@@ -146,13 +200,16 @@ final class UserProfileStore {
         enabledPlaceTypes: [PlaceType],
         customCategories: [CustomPlaceCategory]
     ) {
-        profile = UserProfile(
+        let newProfile = UserProfile(
             displayName: displayName.trimmingCharacters(in: .whitespacesAndNewlines),
             enabledPlaceTypeRawValues: enabledPlaceTypes.map(\.rawValue),
             customCategories: customCategories,
             displayMode: profile.displayMode,
             completedAt: Date()
         )
+        profiles.append(newProfile)
+        activeUserID = newProfile.id
+        isCreatingNewUser = false
         save()
     }
 
@@ -160,18 +217,51 @@ final class UserProfileStore {
         enabledPlaceTypes: [PlaceType],
         customCategories: [CustomPlaceCategory]
     ) {
-        profile.enabledPlaceTypeRawValues = enabledPlaceTypes.map(\.rawValue)
-        profile.customCategories = customCategories
-        save()
+        updateActiveProfile {
+            $0.enabledPlaceTypeRawValues = enabledPlaceTypes.map(\.rawValue)
+            $0.customCategories = customCategories
+        }
+    }
+
+    func customCategory(id: UUID?) -> CustomPlaceCategory? {
+        guard let id else { return nil }
+        return profile.customCategories.first { $0.id == id }
+    }
+
+    func categoryName(for checkIn: CheckIn) -> String {
+        customCategory(id: checkIn.customPlaceCategoryID)?.name ?? checkIn.placeType.rawValue
+    }
+
+    func categoryIcon(for checkIn: CheckIn) -> String {
+        customCategory(id: checkIn.customPlaceCategoryID)?.systemIconName ?? checkIn.placeType.icon
     }
 
     func startNewUserSetup() {
-        profile = .empty
+        isCreatingNewUser = true
+    }
+
+    func showUserSelection() {
+        activeUserID = nil
+        isCreatingNewUser = false
+        save()
+    }
+
+    func selectUser(_ user: UserProfile) {
+        activeUserID = user.id
+        isCreatingNewUser = false
+        save()
+    }
+
+    private func updateActiveProfile(_ update: (inout UserProfile) -> Void) {
+        guard let activeUserID,
+              let index = profiles.firstIndex(where: { $0.id == activeUserID }) else { return }
+        update(&profiles[index])
         save()
     }
 
     private func save() {
-        guard let data = try? JSONEncoder().encode(profile) else { return }
+        let state = UserProfileState(profiles: profiles, activeUserID: activeUserID)
+        guard let data = try? JSONEncoder().encode(state) else { return }
         UserDefaults.standard.set(data, forKey: storageKey)
     }
 }

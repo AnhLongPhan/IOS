@@ -64,13 +64,37 @@ struct StatsView: View {
 
                         ForEach(userProfileStore.enabledPlaceTypes, id: \.self) { placeType in
                             let count = viewModel.checkIns.filter {
-                                $0.placeType == placeType
+                                $0.customPlaceCategoryID == nil && $0.placeType == placeType
                             }.count
 
                             if count > 0 {
                                 NavigationLink(value: StatsListDestination.placeType(placeType)) {
                                     PlaceTypeStatRow(
                                         placeType: placeType,
+                                        count: count,
+                                        total: viewModel.checkIns.count
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+
+                        ForEach(userProfileStore.profile.customCategories) { category in
+                            let count = viewModel.checkIns.filter {
+                                $0.customPlaceCategoryID == category.id
+                            }.count
+
+                            if count > 0 {
+                                NavigationLink(
+                                    value: StatsListDestination.customCategory(
+                                        id: category.id,
+                                        name: category.name
+                                    )
+                                ) {
+                                    CategoryStatRow(
+                                        icon: category.systemIconName,
+                                        name: category.name,
+                                        color: .blue,
                                         count: count,
                                         total: viewModel.checkIns.count
                                     )
@@ -95,7 +119,7 @@ struct StatsView: View {
 
                             NavigationLink(value: latest) {
                                 HStack(spacing: 12) {
-                                    Image(systemName: latest.placeType.icon)
+                                    Image(systemName: userProfileStore.categoryIcon(for: latest))
                                         .font(.title2)
                                         .foregroundStyle(placeTypeColor(latest.placeType))
                                         .frame(width: 44, height: 44)
@@ -173,7 +197,11 @@ struct StatsView: View {
         case .visited:
             items = viewModel.checkIns.filter(\.isVisited)
         case .placeType(let placeType):
-            items = viewModel.checkIns.filter { $0.placeType == placeType }
+            items = viewModel.checkIns.filter {
+                $0.customPlaceCategoryID == nil && $0.placeType == placeType
+            }
+        case .customCategory(let id, _):
+            items = viewModel.checkIns.filter { $0.customPlaceCategoryID == id }
         }
 
         return items.sorted { $0.visitedAt > $1.visitedAt }
@@ -186,6 +214,7 @@ enum StatsListDestination: Hashable {
     case cities
     case visited
     case placeType(PlaceType)
+    case customCategory(id: UUID, name: String)
 
     var title: String {
         switch self {
@@ -194,6 +223,7 @@ enum StatsListDestination: Hashable {
         case .cities: return "Địa điểm có thành phố"
         case .visited: return "Đã đến"
         case .placeType(let placeType): return placeType.rawValue
+        case .customCategory(_, let name): return name
         }
     }
 }
@@ -293,6 +323,60 @@ struct PlaceTypeStatRow: View {
 
                     RoundedRectangle(cornerRadius: 4)
                         .fill(rowColor)
+                        .frame(
+                            width: geo.size.width * percentage,
+                            height: 8
+                        )
+                }
+            }
+            .frame(width: 100, height: 8)
+
+            Text("\(count)")
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundStyle(.primary)
+                .frame(width: 24, alignment: .trailing)
+
+            Image(systemName: "chevron.right")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 6)
+    }
+}
+
+struct CategoryStatRow: View {
+    let icon: String
+    let name: String
+    let color: Color
+    let count: Int
+    let total: Int
+
+    var percentage: Double {
+        total > 0 ? Double(count) / Double(total) : 0
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .frame(width: 24)
+                .foregroundStyle(color)
+
+            Text(name)
+                .font(.subheadline)
+                .foregroundStyle(.primary)
+
+            Spacer()
+
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(color.opacity(0.15))
+                        .frame(height: 8)
+
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(color)
                         .frame(
                             width: geo.size.width * percentage,
                             height: 8

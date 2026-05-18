@@ -6,6 +6,7 @@
 //
 
 import CoreLocation
+import Photos
 import PhotosUI
 import SwiftUI
 
@@ -29,7 +30,9 @@ struct PhotoPickerView: View {
                 guard let data = try? await newItem?.loadTransferable(type: Data.self),
                       let uiImage = UIImage(data: data) else { return }
 
-                let coordinate = metadataService.coordinate(from: data)
+                let coordinate = await metadataService.coordinate(
+                    fromPhotoLibraryAssetIdentifier: newItem?.itemIdentifier
+                ) ?? metadataService.coordinate(from: data)
 
                 await MainActor.run {
                     image = uiImage

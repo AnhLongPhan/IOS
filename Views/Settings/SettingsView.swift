@@ -6,7 +6,6 @@ struct SettingsView: View {
     @Environment(UserProfileStore.self) private var userProfileStore
 
     // @AppStorage — lưu UserDefaults tự động
-    @AppStorage("userName")       var userName: String = ""
     @AppStorage("defaultMapVN")   var defaultMapVN: Bool = true
     @AppStorage("showVisitedOnly") var showVisitedOnly: Bool = false
 
@@ -15,6 +14,7 @@ struct SettingsView: View {
     @State private var shareItem: ShareItem? = nil
     @State private var alertMessage: AlertMessage? = nil
     @State private var isProcessingBackup = false
+    @State private var showNewUserConfirmation = false
 
     var body: some View {
         NavigationStack {
@@ -26,8 +26,20 @@ struct SettingsView: View {
                             .font(.title2)
                             .foregroundStyle(.blue)
 
-                        TextField("Tên của bạn", text: $userName)
+                        TextField("Tên của bạn", text: displayNameBinding)
                             .autocorrectionDisabled()
+
+                        Button {
+                            showNewUserConfirmation = true
+                        } label: {
+                            Text(userProfileStore.displayInitial)
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundStyle(.white)
+                                .frame(width: 32, height: 32)
+                                .background(.blue)
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
 
@@ -115,6 +127,21 @@ struct SettingsView: View {
             } message: {
                 Text("Tất cả địa điểm và ảnh sẽ bị xoá vĩnh viễn.")
             }
+            .confirmationDialog(
+                "Quản lý user",
+                isPresented: $showNewUserConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Chọn user") {
+                    userProfileStore.showUserSelection()
+                }
+                Button("Thêm user mới") {
+                    userProfileStore.startNewUserSetup()
+                }
+                Button("Huỷ", role: .cancel) {}
+            } message: {
+                Text("Dữ liệu đã thêm sẽ chỉ hiển thị cho user tương ứng.")
+            }
             .sheet(item: $shareItem) { item in
                 ShareSheet(items: [item.url])
             }
@@ -139,6 +166,13 @@ struct SettingsView: View {
         Binding(
             get: { userProfileStore.displayMode },
             set: { userProfileStore.displayMode = $0 }
+        )
+    }
+
+    private var displayNameBinding: Binding<String> {
+        Binding(
+            get: { userProfileStore.displayName },
+            set: { userProfileStore.updateDisplayName($0) }
         )
     }
 

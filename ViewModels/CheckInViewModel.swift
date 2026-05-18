@@ -46,17 +46,21 @@ class CheckInViewModel {
     var errorMessage: String? = nil
     var searchText: String = ""
     var selectedPlaceType: PlaceType? = nil
+    var selectedCustomPlaceCategoryID: UUID? = nil
     var selectedCategory: PlaceCategory? = nil
     var visitStatusFilter: VisitStatusFilter = .all
     var sortOption: SortOption = .newest  // thêm mới
 
+    private var allCheckIns: [CheckIn] = []
+    private var activeUserID: UUID? = nil
     private let storage: StorageServiceProtocol
     private let imageService = ImageStorageService()
     private let backupService = BackupService()
 
     init(storage: StorageServiceProtocol = StorageService()) {
         self.storage = storage
-        self.checkIns = storage.load()
+        self.allCheckIns = storage.load()
+        self.checkIns = allCheckIns
     }
 
     // MARK: - Filtered + Sorted
@@ -70,8 +74,14 @@ class CheckInViewModel {
                 item.formattedAddress.localizedCaseInsensitiveContains(searchText) ||
                 item.placeType.rawValue.localizedCaseInsensitiveContains(searchText)
 
-            let matchPlaceType = selectedPlaceType == nil ||
-                item.placeType == selectedPlaceType
+            let matchPlaceType: Bool
+            if let selectedCustomPlaceCategoryID {
+                matchPlaceType = item.customPlaceCategoryID == selectedCustomPlaceCategoryID
+            } else if let selectedPlaceType {
+                matchPlaceType = item.customPlaceCategoryID == nil && item.placeType == selectedPlaceType
+            } else {
+                matchPlaceType = true
+            }
 
             let matchCategory = selectedCategory == nil ||
                 item.category == selectedCategory
@@ -105,22 +115,30 @@ class CheckInViewModel {
     }
 
     func add(_ checkIn: CheckIn) {
-        checkIns.append(checkIn)
-        storage.save(checkIns)
+        var item = checkIn
+        item.ownerUserID = activeUserID
+        allCheckIns.append(item)
+        reloadVisibleCheckIns()
+        storage.save(allCheckIns)
     }
 
     func delete(_ checkIn: CheckIn) {
         if let path = checkIn.photoPath {
             imageService.delete(filename: path)
         }
-        checkIns.removeAll { $0.id == checkIn.id }
-        storage.save(checkIns)
+        allCheckIns.removeAll { $0.id == checkIn.id }
+        reloadVisibleCheckIns()
+        storage.save(allCheckIns)
     }
 
     func update(_ checkIn: CheckIn) {
-        if let index = checkIns.firstIndex(where: { $0.id == checkIn.id }) {
-            checkIns[index] = checkIn
-            storage.save(checkIns)
+        var item = checkIn
+        item.ownerUserID = item.ownerUserID ?? activeUserID
+
+        if let index = allCheckIns.firstIndex(where: { $0.id == item.id }) {
+            allCheckIns[index] = item
+            reloadVisibleCheckIns()
+            storage.save(allCheckIns)
         }
     }
 
@@ -129,8 +147,19 @@ class CheckInViewModel {
     }
 
     func importBackup(from url: URL) throws {
-        checkIns = try backupService.importBackup(from: url, currentCheckIns: checkIns)
-        storage.save(checkIns)
+        let imported = try backupService.importBackup(from: url, currentCheckIns: checkIns)
+            .map { item in
+                var item = item
+                item.ownerUserID = item.ownerUserID ?? activeUserID
+                return item
+            }
+
+        allCheckIns.removeAll { existing in
+            existing.ownerUserID == activeUserID
+        }
+        allCheckIns.append(contentsOf: imported)
+        reloadVisibleCheckIns()
+        storage.save(allCheckIns)
     }
 
     func clearAllData() {
@@ -139,11 +168,43 @@ class CheckInViewModel {
                 imageService.delete(filename: path)
             }
         }
-        checkIns.removeAll()
-        storage.save(checkIns)
+        allCheckIns.removeAll { $0.ownerUserID == activeUserID }
+        reloadVisibleCheckIns()
+        storage.save(allCheckIns)
     }
 
     func clearError() {
         errorMessage = nil
+    }
+
+    func setActiveUserID(_ userID: UUID?) {
+        activeUserID = userID
+
+        if let userID {
+            var didMigrateLegacyItems = false
+            for index in allCheckIns.indices where allCheckIns[index].ownerUserID == nil {
+                allCheckIns[index].ownerUserID = userID
+                didMigrateLegacyItems = true
+            }
+            if didMigrateLegacyItems {
+                storage.save(allCheckIns)
+            }
+        }
+
+        selectedPlaceType = nil
+        selectedCustomPlaceCategoryID = nil
+        selectedCategory = nil
+        visitStatusFilter = .all
+        searchText = ""
+        reloadVisibleCheckIns()
+    }
+
+    private func reloadVisibleCheckIns() {
+        guard let activeUserID else {
+            checkIns = []
+            return
+        }
+
+        checkIns = allCheckIns.filter { $0.ownerUserID == activeUserID }
     }
 }

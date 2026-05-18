@@ -9,10 +9,18 @@ struct TravelPinApp: App {
     var body: some Scene {
         WindowGroup {
             Group {
-                if userProfileStore.hasCompletedOnboarding {
-                    MainTabView()
-                } else {
+                if userProfileStore.shouldShowOnboarding {
                     OnboardingView()
+                } else if userProfileStore.shouldShowUserSelection {
+                    UserSelectionView()
+                } else {
+                    MainTabView()
+                        .onAppear {
+                            viewModel.setActiveUserID(userProfileStore.activeUserID)
+                        }
+                        .onChange(of: userProfileStore.activeUserID) { _, newValue in
+                            viewModel.setActiveUserID(newValue)
+                        }
                 }
             }
                 .environment(viewModel)

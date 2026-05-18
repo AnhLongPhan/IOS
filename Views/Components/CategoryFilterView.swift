@@ -10,6 +10,7 @@ import SwiftUI
 struct CategoryFilterView: View {
     @Environment(UserProfileStore.self) private var userProfileStore
     @Binding var selectedPlaceType: PlaceType?
+    @Binding var selectedCustomPlaceCategoryID: UUID?
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -17,21 +18,38 @@ struct CategoryFilterView: View {
                 FilterChip(
                     label: "Tất cả",
                     icon: "mappin.fill",
-                    isSelected: selectedPlaceType == nil
+                    isSelected: selectedPlaceType == nil && selectedCustomPlaceCategoryID == nil
                 ) {
                     selectedPlaceType = nil
+                    selectedCustomPlaceCategoryID = nil
                 }
 
                 ForEach(userProfileStore.enabledPlaceTypes, id: \.self) { placeType in
                     FilterChip(
                         label: placeType.rawValue,
                         icon: placeType.icon,
-                        isSelected: selectedPlaceType == placeType
+                        isSelected: selectedPlaceType == placeType && selectedCustomPlaceCategoryID == nil
                     ) {
-                        if selectedPlaceType == placeType {
+                        if selectedPlaceType == placeType && selectedCustomPlaceCategoryID == nil {
                             selectedPlaceType = nil
                         } else {
                             selectedPlaceType = placeType
+                        }
+                        selectedCustomPlaceCategoryID = nil
+                    }
+                }
+
+                ForEach(userProfileStore.profile.customCategories) { category in
+                    FilterChip(
+                        label: category.name,
+                        icon: category.systemIconName,
+                        isSelected: selectedCustomPlaceCategoryID == category.id
+                    ) {
+                        if selectedCustomPlaceCategoryID == category.id {
+                            selectedCustomPlaceCategoryID = nil
+                        } else {
+                            selectedPlaceType = nil
+                            selectedCustomPlaceCategoryID = category.id
                         }
                     }
                 }
@@ -68,6 +86,9 @@ struct FilterChip: View {
 }
 
 #Preview {
-    CategoryFilterView(selectedPlaceType: .constant(nil))
+    CategoryFilterView(
+        selectedPlaceType: .constant(nil),
+        selectedCustomPlaceCategoryID: .constant(nil)
+    )
         .environment(UserProfileStore())
 }
